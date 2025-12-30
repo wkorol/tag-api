@@ -79,7 +79,9 @@ jobs:
             if command -v docker compose >/dev/null 2>&1; then
               docker compose -f /opt/tag-api/docker-compose.yml pull
               TAG_API_IMAGE="$TAG_API_IMAGE" docker compose -f /opt/tag-api/docker-compose.yml up -d
+              TAG_API_IMAGE="$TAG_API_IMAGE" docker compose -f /opt/tag-api/docker-compose.yml exec -T application php /home/www/bin/console doctrine:migrations:migrate --no-interaction
             else
               docker-compose -f /opt/tag-api/docker-compose.yml pull
               TAG_API_IMAGE="$TAG_API_IMAGE" docker-compose -f /opt/tag-api/docker-compose.yml up -d
+              TAG_API_IMAGE="$TAG_API_IMAGE" docker-compose -f /opt/tag-api/docker-compose.yml exec -T application php /home/www/bin/console doctrine:migrations:migrate --no-interaction
             fi
