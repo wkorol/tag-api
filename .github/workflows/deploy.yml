@@ -66,7 +66,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ steps.decode_key.outputs.key }}
-          envs: TAG_API_IMAGE,GHCR_USER,GHCR_TOKEN,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD
+          envs: TAG_API_IMAGE,GHCR_USER,GHCR_TOKEN,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,APP_SECRET
           script: |
             set -e
             mkdir -p /opt/tag-api
