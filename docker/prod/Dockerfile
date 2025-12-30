@@ -26,5 +26,11 @@ RUN mkdir -p /home/www/var/cache /home/www/var/log \
     && chown -R www-data:www-data /home/www/var \
     && chmod -R 775 /home/www/var
 
+COPY docker/prod/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 
 COPY docker/prod/vhost.conf /etc/apache2/sites-enabled/000-default.conf
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["apache2-foreground"]
