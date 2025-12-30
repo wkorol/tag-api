@@ -1,6 +1,7 @@
 .git
 .github
-docker
+!docker/prod/Dockerfile
+!docker/prod/vhost.conf
 node_modules
 var
 vendor
