@@ -22,5 +22,8 @@ COPY . .
 RUN touch /home/www/.env
 RUN composer dump-autoload --no-dev --optimize
 
+RUN mkdir -p /home/www/var/cache /home/www/var/log \
+    && chown -R www-data:www-data /home/www/var
+
 
 COPY docker/prod/vhost.conf /etc/apache2/sites-enabled/000-default.conf
