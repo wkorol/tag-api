@@ -47,7 +47,7 @@ jobs:
       - name: Decode SSH key
         id: decode_key
         run: |
-          echo "key<<'EOF'" >> "$GITHUB_OUTPUT"
+          echo "key<<EOF" >> "$GITHUB_OUTPUT"
           echo "${{ secrets.DEPLOY_SSH_KEY_B64 }}" | base64 -d >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
