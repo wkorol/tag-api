@@ -21,8 +21,5 @@ RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --opt
 COPY . .
 RUN composer dump-autoload --no-dev --optimize
 
-# Build cache with a throwaway secret; runtime env overrides it.
-RUN APP_SECRET=build-time \
-    php bin/console cache:clear --env=prod --no-warmup
 
 COPY docker/prod/vhost.conf /etc/apache2/sites-enabled/000-default.conf
