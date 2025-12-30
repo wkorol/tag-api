@@ -46,17 +46,17 @@ jobs:
 
       - name: Write SSH key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY_B64 }}" | base64 -d > /home/runner/.ssh/deploy_key
-          chmod 600 /home/runner/.ssh/deploy_key
-          ssh-keygen -y -f /home/runner/.ssh/deploy_key >/dev/null
+          mkdir -p "${GITHUB_WORKSPACE}/.ssh"
+          echo "${{ secrets.DEPLOY_SSH_KEY_B64 }}" | base64 -d > "${GITHUB_WORKSPACE}/.ssh/deploy_key"
+          chmod 600 "${GITHUB_WORKSPACE}/.ssh/deploy_key"
+          ssh-keygen -y -f "${GITHUB_WORKSPACE}/.ssh/deploy_key" >/dev/null
 
       - name: Upload compose file
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
-          key_path: /home/runner/.ssh/deploy_key
+          key_path: /github/workspace/.ssh/deploy_key
           source: docker-compose.ghcr.yml
           target: /opt/tag-api
 
@@ -65,7 +65,7 @@ jobs:
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
-          key_path: /home/runner/.ssh/deploy_key
+          key_path: /github/workspace/.ssh/deploy_key
           envs: TAG_API_IMAGE,GHCR_USER,GHCR_TOKEN,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD
           script: |
             set -e
