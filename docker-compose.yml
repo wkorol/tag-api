@@ -1,0 +1,34 @@
+services:
+  base:
+    image: tag-base:latest
+    build:
+      context: ./
+      dockerfile: ./docker/base/Dockerfile
+  application:
+    depends_on:
+      - base
+    build:
+      context: ./
+      dockerfile: ./docker/dev/Dockerfile
+    image: tag-api:latest
+    volumes:
+      - ./docker/dev/vhost.conf:/etc/apache2/sites-enabled/000-default.conf
+      - .:/home/www
+    networks:
+      - default
+    ports:
+      - "8000:80"
+  database:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: main
+      POSTGRES_USER: main
+      POSTGRES_DB: main
+    ports:
+      - "5432:5432"
+    volumes:
+      - tag-postgresql:/var/lib/postgresql/data
+volumes:
+  tag-postgresql:
+    external: true
+

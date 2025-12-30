@@ -1,0 +1,31 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  DEPLOY_PATH: /srv/tag-api
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 188.166.160.76
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            if [ ! -d "${DEPLOY_PATH}/.git" ]; then
+              git clone https://github.com/wkorol/tag-api.git "${DEPLOY_PATH}"
+            fi
+            cd "${DEPLOY_PATH}"
+            git checkout main
+            git pull --ff-only
+            cp .env.example .env
+            docker compose up -d --build
