@@ -5,7 +5,9 @@
     xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd"
 >
     <entity name="App\Domain\Order\Order" table="orders">
-        <id name="id" type="guid" column="id" />
+        <id name="id" type="uuid" column="id">
+            <generator strategy="NONE" />
+        </id>
 
         <field name="carType" type="integer" enum-type="App\Domain\Order\CarType" />
         <field name="pickupAddress" type="string" length="255" />

@@ -6,10 +6,11 @@ namespace App\Domain\Order;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Symfony\Component\Uid\Uuid;
 
 final class Order
 {
-    private string $id;
+    private Uuid $id;
     private CarType $carType;
     private string $pickupAddress;
     private string $proposedPrice;
@@ -22,7 +23,7 @@ final class Order
     private string $additionalNotes;
 
     public function __construct(
-        string $id,
+        Uuid $id,
         CarType $carType,
         string $pickupAddress,
         string $proposedPrice,
@@ -34,7 +35,6 @@ final class Order
         string $phoneNumber,
         string $additionalNotes
     ) {
-        $this->assertUuid($id);
         $this->assertPickupTime($pickupTime);
 
         $this->id = $id;
@@ -50,7 +50,7 @@ final class Order
         $this->additionalNotes = $additionalNotes;
     }
 
-    public function id(): string
+    public function id(): Uuid
     {
         return $this->id;
     }
@@ -105,11 +105,30 @@ final class Order
         return $this->additionalNotes;
     }
 
-    private function assertUuid(string $id): void
-    {
-        if (!preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/', $id)) {
-            throw new InvalidArgumentException('Order id must be a valid UUID.');
-        }
+    public function updateDetails(
+        CarType $carType,
+        string $pickupAddress,
+        string $proposedPrice,
+        DateTimeImmutable $date,
+        string $pickupTime,
+        string $flightNumber,
+        string $fullName,
+        string $emailAddress,
+        string $phoneNumber,
+        string $additionalNotes
+    ): void {
+        $this->assertPickupTime($pickupTime);
+
+        $this->carType = $carType;
+        $this->pickupAddress = $pickupAddress;
+        $this->proposedPrice = $proposedPrice;
+        $this->date = $date;
+        $this->pickupTime = $pickupTime;
+        $this->flightNumber = $flightNumber;
+        $this->fullName = $fullName;
+        $this->emailAddress = $emailAddress;
+        $this->phoneNumber = $phoneNumber;
+        $this->additionalNotes = $additionalNotes;
     }
 
     private function assertPickupTime(string $pickupTime): void
