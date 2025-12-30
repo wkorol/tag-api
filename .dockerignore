@@ -1,0 +1,8 @@
+.git
+.github
+docker
+node_modules
+var
+vendor
+.env.local
+.env.*.local

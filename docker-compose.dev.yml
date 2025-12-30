@@ -1,0 +1,31 @@
+services:
+  application:
+    build:
+      context: ./
+      dockerfile: ./docker/dev/Dockerfile
+    image: tag-api:dev
+    volumes:
+      - ./docker/dev/vhost.conf:/etc/apache2/sites-enabled/000-default.conf
+      - .:/home/www
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
+      DATABASE_URL: postgresql://main:main@database:5432/main?sslmode=disable
+    ports:
+      - "8000:80"
+    networks:
+      - default
+    depends_on:
+      - database
+  database:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: main
+      POSTGRES_USER: main
+      POSTGRES_DB: main
+    ports:
+      - "5432:5432"
+    volumes:
+      - tag-postgresql:/var/lib/postgresql/data
+volumes:
+  tag-postgresql:
