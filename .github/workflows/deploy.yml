@@ -17,8 +17,8 @@ jobs:
         with:
           host: 188.166.160.76
           username: root
+          port: 22
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
           script: |
             set -e
             if [ ! -d "${DEPLOY_PATH}/.git" ]; then
