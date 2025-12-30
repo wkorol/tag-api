@@ -1,0 +1,12 @@
+doctrine:
+    dbal:
+        url: '%env(resolve:DATABASE_URL)%'
+
+    orm:
+        mappings:
+            Order:
+                is_bundle: false
+                type: xml
+                dir: '%kernel.project_dir%/config/doctrine'
+                prefix: 'App\Domain\Order'
+                alias: Order
