@@ -44,19 +44,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Write SSH key
+      - name: Decode SSH key
+        id: decode_key
         run: |
-          mkdir -p "${GITHUB_WORKSPACE}/.ssh"
-          echo "${{ secrets.DEPLOY_SSH_KEY_B64 }}" | base64 -d > "${GITHUB_WORKSPACE}/.ssh/deploy_key"
-          chmod 600 "${GITHUB_WORKSPACE}/.ssh/deploy_key"
-          ssh-keygen -y -f "${GITHUB_WORKSPACE}/.ssh/deploy_key" >/dev/null
+          echo "key<<'EOF'" >> "$GITHUB_OUTPUT"
+          echo "${{ secrets.DEPLOY_SSH_KEY_B64 }}" | base64 -d >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Upload compose file
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
-          key_path: /github/workspace/.ssh/deploy_key
+          key: ${{ steps.decode_key.outputs.key }}
           source: docker-compose.ghcr.yml
           target: /opt/tag-api
 
@@ -65,7 +65,7 @@ jobs:
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
-          key_path: /github/workspace/.ssh/deploy_key
+          key: ${{ steps.decode_key.outputs.key }}
           envs: TAG_API_IMAGE,GHCR_USER,GHCR_TOKEN,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD
           script: |
             set -e
