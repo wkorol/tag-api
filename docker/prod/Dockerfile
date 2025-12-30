@@ -11,11 +11,18 @@ RUN a2enmod rewrite
 
 WORKDIR /home/www
 
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+ENV APP_ENV=prod \
+    APP_DEBUG=0 \
+    COMPOSER_ALLOW_SUPERUSER=1
+
+COPY composer.json composer.lock symfony.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader --no-scripts
 
 COPY . .
 RUN composer dump-autoload --no-dev --optimize
 
-COPY docker/prod/vhost.conf /etc/apache2/sites-enabled/000-default.conf
+# Build cache with a throwaway secret; runtime env overrides it.
+RUN APP_SECRET=build-time \
+    php bin/console cache:clear --env=prod --no-warmup
 
+COPY docker/prod/vhost.conf /etc/apache2/sites-enabled/000-default.conf
