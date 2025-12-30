@@ -1,6 +1,7 @@
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
+        server_version: '%env(default:17.0:DB_SERVER_VERSION)%'
 
     orm:
         mappings:
