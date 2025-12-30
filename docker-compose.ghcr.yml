@@ -4,6 +4,7 @@ services:
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
+      APP_SECRET: ${APP_SECRET}
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require
     ports:
       - "8000:80"
