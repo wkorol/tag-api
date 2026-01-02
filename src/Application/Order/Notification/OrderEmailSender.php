@@ -48,9 +48,10 @@ final class OrderEmailSender
 
     public function sendOrderCreatedToAdmin(Order $order): void
     {
-        $confirmUrl = rtrim($this->backendBaseUrl, '/') . '/api/orders/' . $order->id()->toRfc4122()
+        $backendBaseUrl = $this->normalizeBackendBaseUrl($this->backendBaseUrl);
+        $confirmUrl = rtrim($backendBaseUrl, '/') . '/api/orders/' . $order->id()->toRfc4122()
             . '/confirm?token=' . $order->confirmationToken();
-        $manageUrl = rtrim($this->backendBaseUrl, '/') . '/admin/orders/' . $order->id()->toRfc4122()
+        $manageUrl = rtrim($backendBaseUrl, '/') . '/admin/orders/' . $order->id()->toRfc4122()
             . '?token=' . $order->confirmationToken();
         $message = (new Email())
             ->from($this->fromAddress)
@@ -207,12 +208,37 @@ final class OrderEmailSender
             $details[] = 'Pending price proposal: ' . $order->pendingPrice() . ' PLN';
         }
 
+        $customerMessage = $this->extractCustomerMessage($order->additionalNotes());
+        if ($customerMessage !== null) {
+            $details[] = 'Customer message: ' . $customerMessage;
+        }
+
         $route = $this->extractRoute($order->additionalNotes());
         if ($route !== null) {
             $details[] = 'Route: ' . $route;
         }
 
         return $details;
+    }
+
+    private function extractCustomerMessage(string $additionalNotes): ?string
+    {
+        $decoded = json_decode($additionalNotes, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $notes = $decoded['notes'] ?? null;
+        if (!is_string($notes)) {
+            return null;
+        }
+
+        $notes = trim($notes);
+        if ($notes === '') {
+            return null;
+        }
+
+        return $notes;
     }
 
     private function extractRoute(string $additionalNotes): ?string
@@ -234,5 +260,15 @@ final class OrderEmailSender
         }
 
         return sprintf('%s → %s', $from, $to);
+    }
+
+    private function normalizeBackendBaseUrl(string $baseUrl): string
+    {
+        $trimmed = rtrim($baseUrl, '/');
+        if (str_ends_with($trimmed, '/api')) {
+            return substr($trimmed, 0, -4);
+        }
+
+        return $trimmed;
     }
 }

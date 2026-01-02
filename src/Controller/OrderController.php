@@ -577,7 +577,13 @@ final class OrderController
 
     private function backendBaseUrl(): string
     {
-        return getenv('BACKEND_BASE_URL') ?: 'http://localhost:8000';
+        $baseUrl = getenv('BACKEND_BASE_URL') ?: 'http://localhost:8000';
+        $trimmed = rtrim($baseUrl, '/');
+        if (str_ends_with($trimmed, '/api')) {
+            return substr($trimmed, 0, -4);
+        }
+
+        return $trimmed;
     }
 
     private function frontendBaseUrl(): string
