@@ -46,6 +46,12 @@ jobs:
       DB_USER: ${{ secrets.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       APP_SECRET: ${{ secrets.APP_SECRET }}
+      MAILER_DSN: ${{ secrets.MAILER_DSN }}
+      FRONTEND_BASE_URL: ${{ secrets.FRONTEND_BASE_URL }}
+      BACKEND_BASE_URL: ${{ secrets.BACKEND_BASE_URL }}
+      ORDER_EMAIL_FROM: ${{ secrets.ORDER_EMAIL_FROM }}
+      ORDER_ADMIN_EMAIL: ${{ secrets.ORDER_ADMIN_EMAIL }}
+      CORS_ALLOW_ORIGIN: ${{ secrets.CORS_ALLOW_ORIGIN }}
       GHCR_USER: ${{ secrets.GHCR_USER }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
     steps:
@@ -74,7 +80,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ steps.decode_key.outputs.key }}
-          envs: TAG_API_IMAGE,GHCR_USER,GHCR_TOKEN,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,APP_SECRET
+          envs: TAG_API_IMAGE,GHCR_USER,GHCR_TOKEN,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,APP_SECRET,MAILER_DSN,FRONTEND_BASE_URL,BACKEND_BASE_URL,ORDER_EMAIL_FROM,ORDER_ADMIN_EMAIL,CORS_ALLOW_ORIGIN
           script: |
             set -e
             mkdir -p /opt/tag-api

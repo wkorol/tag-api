@@ -10,7 +10,13 @@ use Symfony\Component\Uid\Uuid;
 
 final class Order
 {
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_REJECTED = 'rejected';
+    public const STATUS_PRICE_PROPOSED = 'price_proposed';
+
     private Uuid $id;
+    private string $generatedId;
     private CarType $carType;
     private string $pickupAddress;
     private string $proposedPrice;
@@ -21,9 +27,15 @@ final class Order
     private string $emailAddress;
     private string $phoneNumber;
     private string $additionalNotes;
+    private string $status;
+    private ?string $confirmationToken;
+    private ?string $rejectionReason;
+    private ?string $pendingPrice;
+    private ?string $priceProposalToken;
 
     public function __construct(
         Uuid $id,
+        string $generatedId,
         CarType $carType,
         string $pickupAddress,
         string $proposedPrice,
@@ -33,11 +45,17 @@ final class Order
         string $fullName,
         string $emailAddress,
         string $phoneNumber,
-        string $additionalNotes
+        string $additionalNotes,
+        string $status,
+        ?string $confirmationToken,
+        ?string $rejectionReason,
+        ?string $pendingPrice,
+        ?string $priceProposalToken
     ) {
         $this->assertPickupTime($pickupTime);
 
         $this->id = $id;
+        $this->generatedId = $generatedId;
         $this->carType = $carType;
         $this->pickupAddress = $pickupAddress;
         $this->proposedPrice = $proposedPrice;
@@ -48,6 +66,11 @@ final class Order
         $this->emailAddress = $emailAddress;
         $this->phoneNumber = $phoneNumber;
         $this->additionalNotes = $additionalNotes;
+        $this->status = $status;
+        $this->confirmationToken = $confirmationToken;
+        $this->rejectionReason = $rejectionReason;
+        $this->pendingPrice = $pendingPrice;
+        $this->priceProposalToken = $priceProposalToken;
     }
 
     public function id(): Uuid
@@ -58,6 +81,11 @@ final class Order
     public function carType(): CarType
     {
         return $this->carType;
+    }
+
+    public function generatedId(): string
+    {
+        return $this->generatedId;
     }
 
     public function pickupAddress(): string
@@ -103,6 +131,66 @@ final class Order
     public function additionalNotes(): string
     {
         return $this->additionalNotes;
+    }
+
+    public function status(): string
+    {
+        return $this->status;
+    }
+
+    public function confirmationToken(): ?string
+    {
+        return $this->confirmationToken;
+    }
+
+    public function rejectionReason(): ?string
+    {
+        return $this->rejectionReason;
+    }
+
+    public function pendingPrice(): ?string
+    {
+        return $this->pendingPrice;
+    }
+
+    public function priceProposalToken(): ?string
+    {
+        return $this->priceProposalToken;
+    }
+
+    public function confirm(): void
+    {
+        $this->status = self::STATUS_CONFIRMED;
+        $this->confirmationToken = null;
+        $this->rejectionReason = null;
+        $this->pendingPrice = null;
+        $this->priceProposalToken = null;
+    }
+
+    public function reject(string $reason): void
+    {
+        $this->status = self::STATUS_REJECTED;
+        $this->confirmationToken = null;
+        $this->rejectionReason = $reason;
+        $this->pendingPrice = null;
+        $this->priceProposalToken = null;
+    }
+
+    public function proposePrice(string $price, string $token): void
+    {
+        $this->pendingPrice = $price;
+        $this->priceProposalToken = $token;
+        $this->status = self::STATUS_PRICE_PROPOSED;
+    }
+
+    public function acceptProposedPrice(): void
+    {
+        if ($this->pendingPrice !== null) {
+            $this->proposedPrice = $this->pendingPrice;
+        }
+        $this->pendingPrice = null;
+        $this->priceProposalToken = null;
+        $this->status = self::STATUS_CONFIRMED;
     }
 
     public function updateDetails(
