@@ -1,6 +1,6 @@
 services:
   application:
-    image: ${TAG_API_IMAGE}
+    image: ghcr.io/wkorol/tag-api:latest
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
