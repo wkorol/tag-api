@@ -12,7 +12,26 @@ services:
       ORDER_EMAIL_FROM: ${ORDER_EMAIL_FROM}
       ORDER_ADMIN_EMAIL: ${ORDER_ADMIN_EMAIL}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN}
     ports:
       - "8000:80"
+    networks:
+      - default
+  worker:
+    image: ghcr.io/wkorol/tag-api:latest
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      APP_SECRET: ${APP_SECRET}
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require
+      MAILER_DSN: ${MAILER_DSN}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
+      BACKEND_BASE_URL: ${BACKEND_BASE_URL}
+      ORDER_EMAIL_FROM: ${ORDER_EMAIL_FROM}
+      ORDER_ADMIN_EMAIL: ${ORDER_ADMIN_EMAIL}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN}
+    command: ["php", "/home/www/bin/console", "messenger:consume", "async", "-vv"]
+    restart: unless-stopped
     networks:
       - default

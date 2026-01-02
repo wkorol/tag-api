@@ -46,6 +46,7 @@ jobs:
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       APP_SECRET: ${{ secrets.APP_SECRET }}
       MAILER_DSN: ${{ secrets.MAILER_DSN }}
+      MESSENGER_TRANSPORT_DSN: ${{ secrets.MESSENGER_TRANSPORT_DSN }}
       FRONTEND_BASE_URL: ${{ secrets.FRONTEND_BASE_URL }}
       BACKEND_BASE_URL: ${{ secrets.BACKEND_BASE_URL }}
       ORDER_EMAIL_FROM: ${{ secrets.ORDER_EMAIL_FROM }}
@@ -79,7 +80,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ steps.decode_key.outputs.key }}
-          envs: GHCR_USER,GHCR_TOKEN,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,APP_SECRET,MAILER_DSN,FRONTEND_BASE_URL,BACKEND_BASE_URL,ORDER_EMAIL_FROM,ORDER_ADMIN_EMAIL,CORS_ALLOW_ORIGIN
+          envs: GHCR_USER,GHCR_TOKEN,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,APP_SECRET,MAILER_DSN,MESSENGER_TRANSPORT_DSN,FRONTEND_BASE_URL,BACKEND_BASE_URL,ORDER_EMAIL_FROM,ORDER_ADMIN_EMAIL,CORS_ALLOW_ORIGIN
           script: |
             set -e
             mkdir -p /opt/tag-api
@@ -93,6 +94,7 @@ jobs:
             DB_USER=$DB_USER
             DB_PASSWORD=$DB_PASSWORD
             MAILER_DSN=$MAILER_DSN
+            MESSENGER_TRANSPORT_DSN=$MESSENGER_TRANSPORT_DSN
             FRONTEND_BASE_URL=$FRONTEND_BASE_URL
             BACKEND_BASE_URL=$BACKEND_BASE_URL
             ORDER_EMAIL_FROM=$ORDER_EMAIL_FROM
@@ -108,8 +110,10 @@ jobs:
               docker compose -f /opt/tag-api/docker-compose.yml pull
               docker compose -f /opt/tag-api/docker-compose.yml up -d
               docker compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console doctrine:migrations:migrate --no-interaction
+              docker compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console messenger:setup-transports --no-interaction
             else
               docker-compose -f /opt/tag-api/docker-compose.yml pull
               docker-compose -f /opt/tag-api/docker-compose.yml up -d
               docker-compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console doctrine:migrations:migrate --no-interaction
+              docker-compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console messenger:setup-transports --no-interaction
             fi

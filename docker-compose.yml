@@ -18,6 +18,20 @@ services:
       - default
     ports:
       - "8000:80"
+  worker:
+    depends_on:
+      - base
+    build:
+      context: ./
+      dockerfile: ./docker/dev/Dockerfile
+    image: tag-api:latest
+    volumes:
+      - ./docker/dev/vhost.conf:/etc/apache2/sites-enabled/000-default.conf
+      - .:/home/www
+    command: ["php", "/home/www/bin/console", "messenger:consume", "async", "-vv"]
+    networks:
+      - default
+    restart: unless-stopped
   database:
     image: postgres:17
     environment:

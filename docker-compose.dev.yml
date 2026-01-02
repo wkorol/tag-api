@@ -17,6 +17,24 @@ services:
       - default
     depends_on:
       - database
+  worker:
+    build:
+      context: ./
+      dockerfile: ./docker/dev/Dockerfile
+    image: tag-api:dev
+    volumes:
+      - ./docker/dev/vhost.conf:/etc/apache2/sites-enabled/000-default.conf
+      - .:/home/www
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
+      DATABASE_URL: postgresql://main:main@database:5432/main?sslmode=disable
+    command: ["php", "/home/www/bin/console", "messenger:consume", "async", "-vv"]
+    depends_on:
+      - database
+    networks:
+      - default
+    restart: unless-stopped
   database:
     image: postgres:17
     environment:
