@@ -16,10 +16,12 @@
         "symfony/dotenv": "7.3.*",
         "symfony/flex": "^2",
         "symfony/framework-bundle": "7.3.*",
+        "symfony/http-client": "7.3.*",
         "symfony/mailer": "7.3.*",
         "symfony/messenger": "7.3.*",
         "symfony/mime": "7.3.*",
         "symfony/monolog-bundle": "^4.0",
+        "symfony/resend-mailer": "7.3.*",
         "symfony/runtime": "7.3.*",
         "symfony/uid": "7.3.*",
         "symfony/yaml": "7.3.*"
