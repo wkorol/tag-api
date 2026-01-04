@@ -51,8 +51,9 @@ final class OrderEmailSender
     public function sendOrderCreatedToAdmin(Order $order): void
     {
         $manageUrl = $this->adminManageUrl($order);
-        $listUrl = $this->adminPanelToken !== ''
-            ? rtrim($this->frontendBaseUrl, '/') . '/admin?token=' . $this->adminPanelToken
+        $adminToken = $this->adminPanelTokenValue();
+        $listUrl = $adminToken !== ''
+            ? rtrim($this->frontendBaseUrl, '/') . '/admin?token=' . $adminToken
             : null;
         $message = (new Email())
             ->from($this->fromAddress)
@@ -277,14 +278,19 @@ final class OrderEmailSender
     private function adminManageUrl(Order $order): string
     {
         $manageUrl = rtrim($this->frontendBaseUrl, '/') . '/admin/orders/' . $order->id()->toRfc4122();
-        $token = $this->adminPanelToken !== ''
-            ? $this->adminPanelToken
+        $token = $this->adminPanelTokenValue() !== ''
+            ? $this->adminPanelTokenValue()
             : ($order->confirmationToken() ?? '');
         if ($token !== '') {
             $manageUrl .= '?token=' . $token;
         }
 
         return $manageUrl;
+    }
+
+    private function adminPanelTokenValue(): string
+    {
+        return trim($this->adminPanelToken);
     }
 
     private function normalizeUpdateFields(array $fields): array

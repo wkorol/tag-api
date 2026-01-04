@@ -672,7 +672,12 @@ final class OrderController
 
     private function adminPanelToken(): string
     {
-        return getenv('ADMIN_PANEL_TOKEN') ?: '';
+        $value = getenv('ADMIN_PANEL_TOKEN');
+        if ($value === false) {
+            return '';
+        }
+
+        return trim($value);
     }
 
     private function isAdminTokenValid(string $token): bool
