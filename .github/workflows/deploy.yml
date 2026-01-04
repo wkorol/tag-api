@@ -110,12 +110,12 @@ jobs:
 
             if command -v docker compose >/dev/null 2>&1; then
               docker compose -f /opt/tag-api/docker-compose.yml pull
-              docker compose -f /opt/tag-api/docker-compose.yml up -d
+              docker compose -f /opt/tag-api/docker-compose.yml up -d --force-recreate
               docker compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console doctrine:migrations:migrate --no-interaction
               docker compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console messenger:setup-transports --no-interaction
             else
               docker-compose -f /opt/tag-api/docker-compose.yml pull
-              docker-compose -f /opt/tag-api/docker-compose.yml up -d
+              docker-compose -f /opt/tag-api/docker-compose.yml up -d --force-recreate
               docker-compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console doctrine:migrations:migrate --no-interaction
               docker-compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console messenger:setup-transports --no-interaction
             fi
