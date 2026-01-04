@@ -21,7 +21,8 @@ final class EditOrder
         public readonly string $fullName,
         public readonly string $emailAddress,
         public readonly string $phoneNumber,
-        public readonly string $additionalNotes
+        public readonly string $additionalNotes,
+        public readonly bool $adminUpdateRequest = false
     ) {
     }
 }

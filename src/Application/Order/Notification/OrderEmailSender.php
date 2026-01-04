@@ -129,6 +129,34 @@ final class OrderEmailSender
         $this->sendEmail($message, $order, 'order confirmed');
     }
 
+    public function sendOrderUpdateRequestToCustomer(Order $order, array $fields): void
+    {
+        $fields = $this->normalizeUpdateFields($fields);
+        if ($fields === []) {
+            return;
+        }
+
+        $manageUrl = rtrim($this->frontendBaseUrl, '/') . '/?orderId=' . $order->id()->toRfc4122()
+            . '&update=' . implode(',', $fields);
+        $message = (new Email())
+            ->from($this->fromAddress)
+            ->to($order->emailAddress())
+            ->subject($this->subject('Please update your booking details', $order))
+            ->text(implode("\n", [
+                'We need a quick update to your booking details.',
+                '',
+                'Please update the highlighted fields:',
+                $this->formatUpdateFieldList($fields),
+                '',
+                'Open your booking here:',
+                $manageUrl,
+                '',
+                ...$this->orderDetailsLines($order),
+            ]));
+
+        $this->sendEmail($message, $order, 'order update request');
+    }
+
     public function sendOrderReminderToCustomer(Order $order): void
     {
         $manageUrl = rtrim($this->frontendBaseUrl, '/') . '/?orderId=' . $order->id()->toRfc4122();
@@ -257,6 +285,39 @@ final class OrderEmailSender
         }
 
         return $manageUrl;
+    }
+
+    private function normalizeUpdateFields(array $fields): array
+    {
+        $allowed = ['phone', 'email', 'flight'];
+        $normalized = [];
+        foreach ($fields as $field) {
+            if (!is_string($field)) {
+                continue;
+            }
+            $value = strtolower(trim($field));
+            if (in_array($value, $allowed, true)) {
+                $normalized[] = $value;
+            }
+        }
+
+        return array_values(array_unique($normalized));
+    }
+
+    private function formatUpdateFieldList(array $fields): string
+    {
+        $labels = [
+            'phone' => 'Phone number',
+            'email' => 'Email address',
+            'flight' => 'Flight number',
+        ];
+
+        $items = array_map(
+            fn (string $field) => '- ' . ($labels[$field] ?? $field),
+            $fields
+        );
+
+        return implode("\n", $items);
     }
 
     private function orderDetailsLines(Order $order): array

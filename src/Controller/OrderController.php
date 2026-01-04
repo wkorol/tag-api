@@ -77,9 +77,14 @@ final class OrderController
         try {
             $orderId = $this->uuidFrom($id);
             $order = $this->fetchOrder($entityManager, $orderId);
-            $this->assertEmailMatches($order, $this->stringFrom($data, 'emailAddress'));
+            $currentEmail = array_key_exists('currentEmailAddress', $data)
+                ? $this->stringFrom($data, 'currentEmailAddress')
+                : $this->stringFrom($data, 'emailAddress');
+            $this->assertEmailMatches($order, $currentEmail);
             $this->assertEditable($order);
             $wasConfirmed = $order->status() === Order::STATUS_CONFIRMED;
+
+            $adminUpdateRequest = isset($data['adminUpdateRequest']) && $data['adminUpdateRequest'] === true;
 
             $command = new EditOrder(
                 $orderId,
@@ -92,7 +97,8 @@ final class OrderController
                 $this->stringFrom($data, 'fullName'),
                 $this->stringFrom($data, 'emailAddress'),
                 $this->phoneFrom($data),
-                $this->stringFrom($data, 'additionalNotes', true)
+                $this->stringFrom($data, 'additionalNotes', true),
+                $adminUpdateRequest
             );
 
             ($handler)($command);
@@ -389,6 +395,40 @@ final class OrderController
             $entityManager,
             $emailSender
         );
+    }
+
+    #[Route('/api/admin/orders/{id}/request-update', name: 'admin_orders_request_update', methods: ['POST'])]
+    public function adminRequestUpdate(
+        string $id,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        \App\Application\Order\Notification\OrderEmailSender $emailSender
+    ): JsonResponse {
+        $token = $request->query->get('token');
+        if (!is_string($token) || !$this->isAdminTokenValid($token)) {
+            return $this->errorResponse('Invalid admin token.', Response::HTTP_FORBIDDEN);
+        }
+
+        $data = $this->readJson($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        $fields = $data['fields'] ?? null;
+        if (!is_array($fields) || $fields === []) {
+            return $this->errorResponse('Missing fields.', Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $orderId = $this->uuidFrom($id);
+            $order = $this->fetchOrder($entityManager, $orderId);
+        } catch (OrderNotFound|InvalidArgumentException|ValueError $exception) {
+            return $this->errorResponse('Invalid order.', Response::HTTP_NOT_FOUND);
+        }
+
+        $emailSender->sendOrderUpdateRequestToCustomer($order, $fields);
+
+        return new JsonResponse(['status' => 'requested']);
     }
 
     #[Route('/api/admin/orders/{id}/fulfillment', name: 'admin_orders_fulfillment', methods: ['POST'])]

@@ -23,7 +23,7 @@ final class EditOrderHandler
             throw OrderNotFound::withId($command->id->toRfc4122());
         }
 
-        if ($order->status() === Order::STATUS_CONFIRMED) {
+        if ($order->status() === Order::STATUS_CONFIRMED && !$command->adminUpdateRequest) {
             $token = bin2hex(random_bytes(16));
             $order->markPending($token);
         }
