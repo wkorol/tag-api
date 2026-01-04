@@ -14,6 +14,8 @@ final class Order
     public const STATUS_CONFIRMED = 'confirmed';
     public const STATUS_REJECTED = 'rejected';
     public const STATUS_PRICE_PROPOSED = 'price_proposed';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_FAILED = 'failed';
 
     private Uuid $id;
     private string $generatedId;
@@ -32,6 +34,8 @@ final class Order
     private ?string $rejectionReason;
     private ?string $pendingPrice;
     private ?string $priceProposalToken;
+    private ?DateTimeImmutable $completionReminderSentAt;
+    private ?DateTimeImmutable $customerReminderSentAt;
 
     public function __construct(
         Uuid $id,
@@ -50,7 +54,9 @@ final class Order
         ?string $confirmationToken,
         ?string $rejectionReason,
         ?string $pendingPrice,
-        ?string $priceProposalToken
+        ?string $priceProposalToken,
+        ?DateTimeImmutable $completionReminderSentAt,
+        ?DateTimeImmutable $customerReminderSentAt
     ) {
         $this->assertPickupTime($pickupTime);
 
@@ -71,6 +77,8 @@ final class Order
         $this->rejectionReason = $rejectionReason;
         $this->pendingPrice = $pendingPrice;
         $this->priceProposalToken = $priceProposalToken;
+        $this->completionReminderSentAt = $completionReminderSentAt;
+        $this->customerReminderSentAt = $customerReminderSentAt;
     }
 
     public function id(): Uuid
@@ -158,6 +166,16 @@ final class Order
         return $this->priceProposalToken;
     }
 
+    public function completionReminderSentAt(): ?DateTimeImmutable
+    {
+        return $this->completionReminderSentAt;
+    }
+
+    public function customerReminderSentAt(): ?DateTimeImmutable
+    {
+        return $this->customerReminderSentAt;
+    }
+
     public function confirm(): void
     {
         $this->status = self::STATUS_CONFIRMED;
@@ -165,6 +183,7 @@ final class Order
         $this->rejectionReason = null;
         $this->pendingPrice = null;
         $this->priceProposalToken = null;
+        $this->completionReminderSentAt = null;
     }
 
     public function reject(string $reason): void
@@ -174,6 +193,16 @@ final class Order
         $this->rejectionReason = $reason;
         $this->pendingPrice = null;
         $this->priceProposalToken = null;
+    }
+
+    public function markPending(string $token): void
+    {
+        $this->status = self::STATUS_PENDING;
+        $this->confirmationToken = $token;
+        $this->rejectionReason = null;
+        $this->pendingPrice = null;
+        $this->priceProposalToken = null;
+        $this->customerReminderSentAt = null;
     }
 
     public function proposePrice(string $price, string $token): void
@@ -191,6 +220,27 @@ final class Order
         $this->pendingPrice = null;
         $this->priceProposalToken = null;
         $this->status = self::STATUS_CONFIRMED;
+        $this->completionReminderSentAt = null;
+    }
+
+    public function markCompleted(): void
+    {
+        $this->status = self::STATUS_COMPLETED;
+    }
+
+    public function markFailed(): void
+    {
+        $this->status = self::STATUS_FAILED;
+    }
+
+    public function markCompletionReminderSent(DateTimeImmutable $sentAt): void
+    {
+        $this->completionReminderSentAt = $sentAt;
+    }
+
+    public function markCustomerReminderSent(DateTimeImmutable $sentAt): void
+    {
+        $this->customerReminderSentAt = $sentAt;
     }
 
     public function updateDetails(

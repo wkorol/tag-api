@@ -66,7 +66,8 @@ final class OrderController
         string $id,
         Request $request,
         EditOrderHandler $handler,
-        EntityManagerInterface $entityManager
+        EntityManagerInterface $entityManager,
+        \App\Application\Order\Notification\OrderEmailSender $emailSender
     ): JsonResponse {
         $data = $this->readJson($request);
         if ($data instanceof JsonResponse) {
@@ -78,6 +79,7 @@ final class OrderController
             $order = $this->fetchOrder($entityManager, $orderId);
             $this->assertEmailMatches($order, $this->stringFrom($data, 'emailAddress'));
             $this->assertEditable($order);
+            $wasConfirmed = $order->status() === Order::STATUS_CONFIRMED;
 
             $command = new EditOrder(
                 $orderId,
@@ -94,6 +96,9 @@ final class OrderController
             );
 
             ($handler)($command);
+            if ($wasConfirmed && $order->status() === Order::STATUS_PENDING) {
+                $emailSender->sendOrderUpdatedToAdmin($order);
+            }
         } catch (OrderNotFound $exception) {
             return $this->errorResponse($exception->getMessage(), Response::HTTP_NOT_FOUND);
         } catch (InvalidArgumentException|ValueError $exception) {
@@ -219,10 +224,18 @@ final class OrderController
             $entityManager->flush();
             $emailSender->sendOrderConfirmedToCustomer($order);
 
-            return new Response('Order confirmed. You can close this page now.');
+            $redirectUrl = rtrim($this->frontendBaseUrl(), '/') . '/admin/orders/' . $order->id()->toRfc4122();
+            if ($this->adminPanelToken() !== '') {
+                $redirectUrl .= '?token=' . urlencode($this->adminPanelToken());
+            }
+            return new RedirectResponse($redirectUrl);
         }
 
-        return new Response('Order is already processed.');
+        $redirectUrl = rtrim($this->frontendBaseUrl(), '/') . '/admin/orders/' . $order->id()->toRfc4122();
+        if ($this->adminPanelToken() !== '') {
+            $redirectUrl .= '?token=' . urlencode($this->adminPanelToken()) . '&status=processed';
+        }
+        return new RedirectResponse($redirectUrl);
     }
 
     #[Route('/admin/orders/{id}', name: 'admin_orders_manage', methods: ['GET'])]
@@ -232,81 +245,12 @@ final class OrderController
         EntityManagerInterface $entityManager
     ): Response {
         $token = $request->query->get('token');
-        if (!is_string($token) || trim($token) === '') {
-            return new Response('Missing confirmation token.', Response::HTTP_BAD_REQUEST);
+        $frontendUrl = rtrim($this->frontendBaseUrl(), '/') . '/admin/orders/' . $id;
+        if (is_string($token) && trim($token) !== '') {
+            $frontendUrl .= '?token=' . urlencode($token);
         }
 
-        try {
-            $orderId = $this->uuidFrom($id);
-            $order = $this->fetchOrder($entityManager, $orderId);
-        } catch (OrderNotFound|InvalidArgumentException|ValueError $exception) {
-            return new Response('Invalid order.', Response::HTTP_NOT_FOUND);
-        }
-
-        if ($order->confirmationToken() !== $token) {
-            return new Response('Invalid confirmation token.', Response::HTTP_FORBIDDEN);
-        }
-
-        $statusMessage = match ($order->status()) {
-            Order::STATUS_CONFIRMED => 'This order is already confirmed.',
-            Order::STATUS_REJECTED => 'This order has already been rejected.',
-            Order::STATUS_PRICE_PROPOSED => 'A new price has been proposed to the customer. Waiting for their response.',
-            default => null,
-        };
-
-        $body = '<!doctype html><html lang="pl"><head><meta charset="utf-8">';
-        $body .= '<meta name="viewport" content="width=device-width, initial-scale=1">';
-        $body .= '<title>Taxi Airport Gdańsk – zarządzanie zleceniem</title>';
-        $body .= '<style>';
-        $body .= 'body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:linear-gradient(135deg,#f8f9fb,#e9f0ff);padding:32px;color:#0f172a;}';
-        $body .= '.card{max-width:820px;margin:0 auto;background:#fff;border-radius:18px;padding:28px;';
-        $body .= 'box-shadow:0 20px 45px rgba(15,23,42,.12);}';
-        $body .= '.header{display:flex;align-items:center;gap:12px;margin-bottom:20px;}';
-        $body .= '.badge{background:#0b5ed7;color:#fff;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;}';
-        $body .= '.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:16px;}';
-        $body .= '.tile{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;}';
-        $body .= 'label{font-weight:600;}';
-        $body .= 'textarea{width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid #cbd5f5;font-size:14px;}';
-        $body .= 'button{padding:12px 18px;border-radius:10px;border:none;cursor:pointer;font-weight:600;}';
-        $body .= '.primary{background:#0b5ed7;color:#fff;}';
-        $body .= '.danger{background:#dc3545;color:#fff;}';
-        $body .= '.row{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px;}';
-        $body .= '.note{margin-top:12px;font-size:13px;color:#64748b;}';
-        $body .= '</style></head><body>';
-        $body .= '<div class="card">';
-        $body .= '<div class="header"><div class="badge">Taxi Airport Gdańsk</div>';
-        $body .= '<h2>Zlecenie #' . $order->generatedId() . '</h2></div>';
-        $body .= '<div class="grid">';
-        $body .= '<div class="tile"><strong>ID zamówienia</strong><br>' . $order->id()->toRfc4122() . '</div>';
-        $body .= '<div class="tile"><strong>Klient</strong><br>' . $order->fullName() . '<br>' . $order->emailAddress() . '</div>';
-        $body .= '<div class="tile"><strong>Termin</strong><br>' . $order->date()->format('Y-m-d') . ' ' . $order->pickupTime() . '</div>';
-        $body .= '<div class="tile"><strong>Status</strong><br>' . $order->status() . '</div>';
-        $body .= '<div class="tile"><strong>Cena</strong><br>' . htmlspecialchars($order->proposedPrice(), ENT_QUOTES) . '</div>';
-        $body .= '</div>';
-
-        if ($statusMessage !== null) {
-            $body .= '<p class="note"><strong>' . $statusMessage . '</strong></p>';
-            if ($order->status() === Order::STATUS_REJECTED && $order->rejectionReason()) {
-                $body .= '<div class="tile" style="margin-top:16px;"><strong>Powód odrzucenia</strong><br>'
-                    . nl2br(htmlspecialchars($order->rejectionReason(), ENT_QUOTES)) . '</div>';
-            }
-        } else {
-            $body .= '<form method="post" action="' . rtrim($this->backendBaseUrl(), '/') . '/admin/orders/' . $order->id()->toRfc4122() . '/decision?token=' . $token . '">';
-            $body .= '<label for="price">Proponowana cena</label><br>';
-            $body .= '<input id="price" name="price" value="' . htmlspecialchars($order->proposedPrice(), ENT_QUOTES) . '" style="width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid #cbd5f5;">';
-            $body .= '<label for="message">Powód odrzucenia (opcjonalnie)</label><br>';
-            $body .= '<textarea id="message" name="message" rows="4" style="width:100%;margin-top:8px;"></textarea>';
-            $body .= '<div class="row">';
-            $body .= '<button class="primary" type="submit" name="action" value="confirm">Akceptuj zlecenie</button>';
-            $body .= '<button class="primary" type="submit" name="action" value="price">Zaproponuj nową cenę</button>';
-            $body .= '<button class="danger" type="submit" name="action" value="reject">Odrzuć zlecenie</button>';
-            $body .= '</div></form>';
-            $body .= '<p class="note">Jeśli nie podasz powodu, klient dostanie standardowy komunikat o braku dostępności.</p>';
-        }
-
-        $body .= '</div></body></html>';
-
-        return new Response($body);
+        return new RedirectResponse($frontendUrl);
     }
 
     #[Route('/admin/orders/{id}/decision', name: 'admin_orders_decision', methods: ['POST'])]
@@ -321,71 +265,26 @@ final class OrderController
             return new Response('Missing confirmation token.', Response::HTTP_BAD_REQUEST);
         }
 
-        try {
-            $orderId = $this->uuidFrom($id);
-            $order = $this->fetchOrder($entityManager, $orderId);
-        } catch (OrderNotFound|InvalidArgumentException|ValueError $exception) {
-            return new Response('Invalid order.', Response::HTTP_NOT_FOUND);
-        }
-
-        if ($order->confirmationToken() !== $token) {
-            return new Response('Invalid confirmation token.', Response::HTTP_FORBIDDEN);
-        }
-
         $action = $request->request->get('action');
-        if (!is_string($action) || !in_array($action, ['confirm', 'reject', 'price'], true)) {
-            return new Response('Invalid action.', Response::HTTP_BAD_REQUEST);
-        }
-
-        if ($action === 'confirm') {
-            if ($order->status() === Order::STATUS_PENDING) {
-                $order->confirm();
-                $entityManager->flush();
-                $emailSender->sendOrderConfirmedToCustomer($order);
-
-                return new Response('Order confirmed. You can close this page now.');
-            }
-
-            return new Response('Order is already processed.');
-        }
-
-        if ($action === 'price') {
-            $price = $request->request->get('price');
-            if (!is_string($price) || trim($price) === '') {
-                return new Response('Missing price.', Response::HTTP_BAD_REQUEST);
-            }
-
-            if ($order->status() === Order::STATUS_PENDING) {
-                $tokenValue = bin2hex(random_bytes(16));
-                $order->proposePrice(trim($price), $tokenValue);
-                $entityManager->flush();
-
-                $acceptUrl = rtrim($this->backendBaseUrl(), '/') . '/api/orders/' . $order->id()->toRfc4122()
-                    . '/price/accept?token=' . $tokenValue;
-                $rejectUrl = rtrim($this->backendBaseUrl(), '/') . '/api/orders/' . $order->id()->toRfc4122()
-                    . '/price/reject?token=' . $tokenValue;
-                $emailSender->sendPriceProposalToCustomer($order, trim($price), $acceptUrl, $rejectUrl);
-
-                return new Response('Price proposal sent to customer.');
-            }
-
-            return new Response('Order is already processed.');
-        }
-
         $message = $request->request->get('message');
-        $reason = is_string($message) && trim($message) !== ''
-            ? trim($message)
-            : 'The order was rejected because we cannot fulfill it at the requested time.';
+        $price = $request->request->get('price');
 
-        if ($order->status() === Order::STATUS_PENDING) {
-            $order->reject($reason);
-            $entityManager->flush();
-            $emailSender->sendOrderRejectedToCustomer($order, $reason);
+        $result = $this->handleAdminDecision(
+            $id,
+            $token,
+            $action,
+            $message,
+            $price,
+            $entityManager,
+            $emailSender
+        );
 
-            return new Response('Order rejected. The customer has been notified.');
+        $frontendUrl = rtrim($this->frontendBaseUrl(), '/') . '/admin/orders/' . $id . '?token=' . urlencode($token);
+        if ($result->getStatusCode() === Response::HTTP_OK) {
+            $frontendUrl .= '&status=updated';
         }
 
-        return new Response('Order is already processed.');
+        return new RedirectResponse($frontendUrl);
     }
 
     #[Route('/api/orders/{id}/price/accept', name: 'orders_price_accept', methods: ['GET'])]
@@ -415,7 +314,128 @@ final class OrderController
         $entityManager->flush();
         $emailSender->sendOrderConfirmedToCustomer($order);
 
-        return new Response('Price accepted. Your order is confirmed.');
+        $redirectUrl = rtrim($this->frontendBaseUrl(), '/') . '/?orderId=' . $order->id()->toRfc4122()
+            . '&priceAccepted=1';
+        return new RedirectResponse($redirectUrl);
+    }
+
+    #[Route('/api/admin/orders', name: 'admin_orders_list', methods: ['GET'])]
+    public function adminList(
+        Request $request,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        $token = $request->query->get('token');
+        if (!is_string($token) || !$this->isAdminTokenValid($token)) {
+            return $this->errorResponse('Invalid admin token.', Response::HTTP_FORBIDDEN);
+        }
+
+        $orders = $entityManager->getRepository(Order::class)->findBy([], ['date' => 'DESC']);
+        $payload = array_map(fn (Order $order) => $this->adminOrderPayload($order), $orders);
+
+        return new JsonResponse(['orders' => $payload]);
+    }
+
+    #[Route('/api/admin/orders/{id}', name: 'admin_orders_show', methods: ['GET'])]
+    public function adminShow(
+        string $id,
+        Request $request,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        try {
+            $orderId = $this->uuidFrom($id);
+            $order = $this->fetchOrder($entityManager, $orderId);
+        } catch (OrderNotFound|InvalidArgumentException|ValueError $exception) {
+            return $this->errorResponse('Invalid order.', Response::HTTP_NOT_FOUND);
+        }
+
+        $token = $request->query->get('token');
+        if (!is_string($token) || !$this->canAccessAdminOrder($order, $token)) {
+            return $this->errorResponse('Invalid admin token.', Response::HTTP_FORBIDDEN);
+        }
+
+        return new JsonResponse(array_merge(
+            $this->adminOrderPayload($order),
+            ['canViewAll' => $this->isAdminTokenValid($token)]
+        ));
+    }
+
+    #[Route('/api/admin/orders/{id}/decision', name: 'admin_orders_decision_api', methods: ['POST'])]
+    public function adminDecision(
+        string $id,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        \App\Application\Order\Notification\OrderEmailSender $emailSender
+    ): JsonResponse {
+        $token = $request->query->get('token');
+        if (!is_string($token) || trim($token) === '') {
+            return $this->errorResponse('Missing confirmation token.', Response::HTTP_BAD_REQUEST);
+        }
+
+        $data = $this->readJson($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        $action = $data['action'] ?? null;
+        $message = $data['message'] ?? null;
+        $price = $data['price'] ?? null;
+
+        return $this->handleAdminDecision(
+            $id,
+            $token,
+            $action,
+            $message,
+            $price,
+            $entityManager,
+            $emailSender
+        );
+    }
+
+    #[Route('/api/admin/orders/{id}/fulfillment', name: 'admin_orders_fulfillment', methods: ['POST'])]
+    public function adminFulfillment(
+        string $id,
+        Request $request,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        $token = $request->query->get('token');
+        if (!is_string($token) || trim($token) === '') {
+            return $this->errorResponse('Missing confirmation token.', Response::HTTP_BAD_REQUEST);
+        }
+
+        $data = $this->readJson($request);
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        $action = $data['action'] ?? null;
+        if (!is_string($action) || !in_array($action, ['completed', 'failed'], true)) {
+            return $this->errorResponse('Invalid action.', Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $orderId = $this->uuidFrom($id);
+            $order = $this->fetchOrder($entityManager, $orderId);
+        } catch (OrderNotFound|InvalidArgumentException|ValueError $exception) {
+            return $this->errorResponse('Invalid order.', Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->canAccessAdminOrder($order, $token)) {
+            return $this->errorResponse('Invalid confirmation token.', Response::HTTP_FORBIDDEN);
+        }
+
+        if ($order->status() !== Order::STATUS_CONFIRMED) {
+            return $this->errorResponse('Order is not confirmed.', Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($action === 'completed') {
+            $order->markCompleted();
+        } else {
+            $order->markFailed();
+        }
+
+        $entityManager->flush();
+
+        return new JsonResponse(['status' => $order->status()]);
     }
 
     #[Route('/api/orders/{id}/price/reject', name: 'orders_price_reject', methods: ['GET'])]
@@ -589,7 +609,7 @@ final class OrderController
 
     private function assertEditable(Order $order): void
     {
-        if ($order->status() !== Order::STATUS_PENDING) {
+        if (!in_array($order->status(), [Order::STATUS_PENDING, Order::STATUS_CONFIRMED], true)) {
             throw new \RuntimeException('This order can no longer be edited.');
         }
     }
@@ -607,6 +627,127 @@ final class OrderController
 
     private function frontendBaseUrl(): string
     {
-        return getenv('FRONTEND_BASE_URL') ?: 'http://localhost:5173';
+        return getenv('FRONTEND_BASE_URL') ?: 'http://localhost:3000';
+    }
+
+    private function adminPanelToken(): string
+    {
+        return getenv('ADMIN_PANEL_TOKEN') ?: '';
+    }
+
+    private function isAdminTokenValid(string $token): bool
+    {
+        $adminToken = $this->adminPanelToken();
+        if ($adminToken === '') {
+            return false;
+        }
+
+        return hash_equals($adminToken, $token);
+    }
+
+    private function canAccessAdminOrder(Order $order, string $token): bool
+    {
+        if ($this->isAdminTokenValid($token)) {
+            return true;
+        }
+
+        $confirmationToken = $order->confirmationToken();
+        return $confirmationToken !== null && hash_equals($confirmationToken, $token);
+    }
+
+    private function adminOrderPayload(Order $order): array
+    {
+        return [
+            'id' => $order->id()->toRfc4122(),
+            'generatedId' => $order->generatedId(),
+            'carType' => $order->carType()->value,
+            'pickupAddress' => $order->pickupAddress(),
+            'proposedPrice' => $order->proposedPrice(),
+            'date' => $order->date()->format('Y-m-d'),
+            'pickupTime' => $order->pickupTime(),
+            'flightNumber' => $order->flightNumber(),
+            'fullName' => $order->fullName(),
+            'emailAddress' => $order->emailAddress(),
+            'phoneNumber' => $order->phoneNumber(),
+            'additionalNotes' => $order->additionalNotes(),
+            'status' => $order->status(),
+            'rejectionReason' => $order->rejectionReason(),
+            'pendingPrice' => $order->pendingPrice(),
+            'confirmationToken' => $order->confirmationToken(),
+            'completionReminderSentAt' => $order->completionReminderSentAt()?->format(DATE_ATOM),
+        ];
+    }
+
+    private function handleAdminDecision(
+        string $id,
+        string $token,
+        mixed $action,
+        mixed $message,
+        mixed $price,
+        EntityManagerInterface $entityManager,
+        \App\Application\Order\Notification\OrderEmailSender $emailSender
+    ): JsonResponse {
+        if (!is_string($action) || !in_array($action, ['confirm', 'reject', 'price'], true)) {
+            return $this->errorResponse('Invalid action.', Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $orderId = $this->uuidFrom($id);
+            $order = $this->fetchOrder($entityManager, $orderId);
+        } catch (OrderNotFound|InvalidArgumentException|ValueError $exception) {
+            return $this->errorResponse('Invalid order.', Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->canAccessAdminOrder($order, $token)) {
+            return $this->errorResponse('Invalid confirmation token.', Response::HTTP_FORBIDDEN);
+        }
+
+        if ($action === 'confirm') {
+            if ($order->status() === Order::STATUS_PENDING) {
+                $order->confirm();
+                $entityManager->flush();
+                $emailSender->sendOrderConfirmedToCustomer($order);
+
+                return new JsonResponse(['status' => $order->status()]);
+            }
+
+            return $this->errorResponse('Order is already processed.', Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($action === 'price') {
+            if (!is_string($price) || trim($price) === '') {
+                return $this->errorResponse('Missing price.', Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($order->status() === Order::STATUS_PENDING) {
+                $tokenValue = bin2hex(random_bytes(16));
+                $order->proposePrice(trim($price), $tokenValue);
+                $entityManager->flush();
+
+                $acceptUrl = rtrim($this->backendBaseUrl(), '/') . '/api/orders/' . $order->id()->toRfc4122()
+                    . '/price/accept?token=' . $tokenValue;
+                $rejectUrl = rtrim($this->backendBaseUrl(), '/') . '/api/orders/' . $order->id()->toRfc4122()
+                    . '/price/reject?token=' . $tokenValue;
+                $emailSender->sendPriceProposalToCustomer($order, trim($price), $acceptUrl, $rejectUrl);
+
+                return new JsonResponse(['status' => $order->status()]);
+            }
+
+            return $this->errorResponse('Order is already processed.', Response::HTTP_BAD_REQUEST);
+        }
+
+        $reason = is_string($message) && trim($message) !== ''
+            ? trim($message)
+            : 'The order was rejected because we cannot fulfill it at the requested time.';
+
+        if ($order->status() === Order::STATUS_PENDING) {
+            $order->reject($reason);
+            $entityManager->flush();
+            $emailSender->sendOrderRejectedToCustomer($order, $reason);
+
+            return new JsonResponse(['status' => $order->status()]);
+        }
+
+        return $this->errorResponse('Order is already processed.', Response::HTTP_BAD_REQUEST);
     }
 }

@@ -8,6 +8,7 @@ parameters:
     app.order_email_from: '%env(ORDER_EMAIL_FROM)%'
     app.order_admin_email: '%env(ORDER_ADMIN_EMAIL)%'
     app.backend_base_url: '%env(BACKEND_BASE_URL)%'
+    app.admin_panel_token: '%env(ADMIN_PANEL_TOKEN)%'
 
 services:
     # default configuration for services in *this* file

@@ -54,6 +54,7 @@ jobs:
       CORS_ALLOW_ORIGIN: ${{ secrets.CORS_ALLOW_ORIGIN }}
       GHCR_USER: ${{ secrets.GHCR_USER }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      ADMIN_PANEL_TOKEN: ${{ secrets.ADMIN_PANEL_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,7 +81,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ steps.decode_key.outputs.key }}
-          envs: GHCR_USER,GHCR_TOKEN,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,APP_SECRET,MAILER_DSN,MESSENGER_TRANSPORT_DSN,FRONTEND_BASE_URL,BACKEND_BASE_URL,ORDER_EMAIL_FROM,ORDER_ADMIN_EMAIL,CORS_ALLOW_ORIGIN
+          envs: GHCR_USER,GHCR_TOKEN,DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,APP_SECRET,MAILER_DSN,MESSENGER_TRANSPORT_DSN,FRONTEND_BASE_URL,BACKEND_BASE_URL,ORDER_EMAIL_FROM,ORDER_ADMIN_EMAIL,CORS_ALLOW_ORIGIN,ADMIN_PANEL_TOKEN
           script: |
             set -e
             mkdir -p /opt/tag-api
@@ -100,6 +101,7 @@ jobs:
             ORDER_EMAIL_FROM=$ORDER_EMAIL_FROM
             ORDER_ADMIN_EMAIL=$ORDER_ADMIN_EMAIL
             CORS_ALLOW_ORIGIN=$CORS_ALLOW_ORIGIN
+            ADMIN_PANEL_TOKEN=$ADMIN_PANEL_TOKEN
             EOF
 
             if [ -n "$GHCR_USER" ] && [ -n "$GHCR_TOKEN" ]; then
@@ -117,3 +119,8 @@ jobs:
               docker-compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console doctrine:migrations:migrate --no-interaction
               docker-compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console messenger:setup-transports --no-interaction
             fi
+
+            CRON_COMPLETION='docker compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console app:orders:send-completion-reminders'
+            CRON_CUSTOMER='docker compose -f /opt/tag-api/docker-compose.yml exec -T -u www-data application php /home/www/bin/console app:orders:send-customer-reminders'
+            (crontab -l 2>/dev/null | grep -v "app:orders:send-completion-reminders" || true; echo "* * * * * $CRON_COMPLETION") | crontab -
+            (crontab -l 2>/dev/null | grep -v "app:orders:send-customer-reminders" || true; echo "* * * * * $CRON_CUSTOMER") | crontab -

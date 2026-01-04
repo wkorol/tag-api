@@ -20,6 +20,8 @@ final class OrderEmailSender
         private readonly string $fromAddress,
         #[Autowire('%app.order_admin_email%')]
         private readonly string $adminAddress,
+        #[Autowire('%app.admin_panel_token%')]
+        private readonly string $adminPanelToken,
         #[Autowire('%app.frontend_base_url%')]
         private readonly string $frontendBaseUrl,
         #[Autowire('%app.backend_base_url%')]
@@ -48,11 +50,10 @@ final class OrderEmailSender
 
     public function sendOrderCreatedToAdmin(Order $order): void
     {
-        $backendBaseUrl = $this->normalizeBackendBaseUrl($this->backendBaseUrl);
-        $confirmUrl = rtrim($backendBaseUrl, '/') . '/api/orders/' . $order->id()->toRfc4122()
-            . '/confirm?token=' . $order->confirmationToken();
-        $manageUrl = rtrim($backendBaseUrl, '/') . '/admin/orders/' . $order->id()->toRfc4122()
-            . '?token=' . $order->confirmationToken();
+        $manageUrl = $this->adminManageUrl($order);
+        $listUrl = $this->adminPanelToken !== ''
+            ? rtrim($this->frontendBaseUrl, '/') . '/admin?token=' . $this->adminPanelToken
+            : null;
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($this->adminAddress)
@@ -60,16 +61,53 @@ final class OrderEmailSender
             ->text(implode("\n", [
                 'A new order has been placed.',
                 '',
-                'Confirm the order using the link below:',
-                $confirmUrl,
-                '',
                 'Manage (confirm/reject) using this link:',
+                $manageUrl,
+                '',
+                ...($listUrl ? ['All orders panel:', $listUrl, ''] : []),
+                ...$this->orderDetailsLines($order),
+            ]));
+
+        $this->sendEmail($message, $order, 'admin notification');
+    }
+
+    public function sendOrderUpdatedToAdmin(Order $order): void
+    {
+        $manageUrl = $this->adminManageUrl($order);
+        $message = (new Email())
+            ->from($this->fromAddress)
+            ->to($this->adminAddress)
+            ->subject($this->subject('Order updated, needs reconfirmation', $order))
+            ->text(implode("\n", [
+                'The customer updated a previously confirmed order.',
+                '',
+                'Please review and confirm again:',
                 $manageUrl,
                 '',
                 ...$this->orderDetailsLines($order),
             ]));
 
-        $this->sendEmail($message, $order, 'admin notification');
+        $this->sendEmail($message, $order, 'order updated admin');
+    }
+
+    public function sendOrderCompletionReminderToAdmin(Order $order): void
+    {
+        $manageUrl = $this->adminManageUrl($order);
+        $message = (new Email())
+            ->from($this->fromAddress)
+            ->to($this->adminAddress)
+            ->subject($this->subject('Order ready to mark as completed', $order))
+            ->text(implode("\n", [
+                'Pickup time has passed for a confirmed order.',
+                'Please mark it as completed or not completed.',
+                '',
+                'Open order:',
+                $manageUrl,
+                '',
+                ...$this->orderDetailsLines($order),
+            ]));
+
+        $this->sendEmail($message, $order, 'order completion reminder');
     }
 
     public function sendOrderConfirmedToCustomer(Order $order): void
@@ -82,13 +120,32 @@ final class OrderEmailSender
             ->text(implode("\n", [
                 'Your booking has been confirmed.',
                 '',
-                'You can cancel your order using the link below:',
+                'You can edit or cancel your order using the link below:',
                 $manageUrl,
                 '',
                 ...$this->orderDetailsLines($order),
             ]));
 
         $this->sendEmail($message, $order, 'order confirmed');
+    }
+
+    public function sendOrderReminderToCustomer(Order $order): void
+    {
+        $manageUrl = rtrim($this->frontendBaseUrl, '/') . '/?orderId=' . $order->id()->toRfc4122();
+        $message = (new Email())
+            ->from($this->fromAddress)
+            ->to($order->emailAddress())
+            ->subject($this->subject('24h reminder', $order))
+            ->text(implode("\n", [
+                'This is a friendly reminder that your booking is scheduled within 24 hours.',
+                '',
+                'You can edit or cancel your order using the link below:',
+                $manageUrl,
+                '',
+                ...$this->orderDetailsLines($order),
+            ]));
+
+        $this->sendEmail($message, $order, 'order reminder');
     }
 
     public function sendPriceProposalToCustomer(Order $order, string $price, string $acceptUrl, string $rejectUrl): void
@@ -187,6 +244,19 @@ final class OrderEmailSender
     private function subject(string $label, Order $order): string
     {
         return sprintf('Taxi Airport Gdańsk - %s #%s', $label, $order->generatedId());
+    }
+
+    private function adminManageUrl(Order $order): string
+    {
+        $manageUrl = rtrim($this->frontendBaseUrl, '/') . '/admin/orders/' . $order->id()->toRfc4122();
+        $token = $this->adminPanelToken !== ''
+            ? $this->adminPanelToken
+            : ($order->confirmationToken() ?? '');
+        if ($token !== '') {
+            $manageUrl .= '?token=' . $token;
+        }
+
+        return $manageUrl;
     }
 
     private function orderDetailsLines(Order $order): array
