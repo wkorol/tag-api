@@ -204,6 +204,11 @@ final class OrderEmailSender
             'Price: ' . $order->proposedPrice() . ' PLN',
         ];
 
+        $passengers = $this->extractPassengers($order->additionalNotes());
+        if ($passengers !== null) {
+            $details[] = 'Passengers: ' . $passengers;
+        }
+
         if ($order->pendingPrice() !== null) {
             $details[] = 'Pending price proposal: ' . $order->pendingPrice() . ' PLN';
         }
@@ -219,6 +224,29 @@ final class OrderEmailSender
         }
 
         return $details;
+    }
+
+    private function extractPassengers(string $additionalNotes): ?string
+    {
+        $decoded = json_decode($additionalNotes, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $passengers = $decoded['passengers'] ?? null;
+        if (is_int($passengers)) {
+            return (string) $passengers;
+        }
+        if (!is_string($passengers)) {
+            return null;
+        }
+
+        $passengers = trim($passengers);
+        if ($passengers === '') {
+            return null;
+        }
+
+        return $passengers;
     }
 
     private function extractCustomerMessage(string $additionalNotes): ?string

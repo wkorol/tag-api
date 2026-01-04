@@ -46,7 +46,7 @@ final class OrderController
                 $this->stringFrom($data, 'flightNumber'),
                 $this->stringFrom($data, 'fullName'),
                 $this->stringFrom($data, 'emailAddress'),
-                $this->stringFrom($data, 'phoneNumber'),
+                $this->phoneFrom($data),
                 $this->stringFrom($data, 'additionalNotes', true)
             );
         } catch (InvalidArgumentException|ValueError $exception) {
@@ -89,7 +89,7 @@ final class OrderController
                 $this->stringFrom($data, 'flightNumber'),
                 $this->stringFrom($data, 'fullName'),
                 $this->stringFrom($data, 'emailAddress'),
-                $this->stringFrom($data, 'phoneNumber'),
+                $this->phoneFrom($data),
                 $this->stringFrom($data, 'additionalNotes', true)
             );
 
@@ -544,6 +544,25 @@ final class OrderController
         }
 
         return $value;
+    }
+
+    private function phoneFrom(array $data): string
+    {
+        $value = $this->stringFrom($data, 'phoneNumber');
+        $normalized = preg_replace('/[\\s\\-()]/', '', $value);
+        if ($normalized === null) {
+            throw new InvalidArgumentException('Invalid "phoneNumber" value.');
+        }
+
+        if (str_starts_with($normalized, '00')) {
+            $normalized = '+' . substr($normalized, 2);
+        }
+
+        if (!preg_match('/^\\+?[0-9]{7,15}$/', $normalized)) {
+            throw new InvalidArgumentException('Invalid "phoneNumber" value.');
+        }
+
+        return $normalized;
     }
 
     private function errorResponse(string $message, int $status): JsonResponse
