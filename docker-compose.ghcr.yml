@@ -13,6 +13,8 @@ services:
       ORDER_ADMIN_EMAIL: ${ORDER_ADMIN_EMAIL}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
       MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN}
+      ADMIN_PANEL_TOKEN: ${ADMIN_PANEL_TOKEN}
+      TZ: Europe/Warsaw
     ports:
       - "8000:80"
     networks:
@@ -31,6 +33,8 @@ services:
       ORDER_ADMIN_EMAIL: ${ORDER_ADMIN_EMAIL}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
       MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN}
+      ADMIN_PANEL_TOKEN: ${ADMIN_PANEL_TOKEN}
+      TZ: Europe/Warsaw
     command: ["php", "/home/www/bin/console", "messenger:consume", "async", "-vv"]
     restart: unless-stopped
     networks:
