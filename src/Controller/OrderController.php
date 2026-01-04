@@ -85,6 +85,7 @@ final class OrderController
             $wasConfirmed = $order->status() === Order::STATUS_CONFIRMED;
 
             $adminUpdateRequest = isset($data['adminUpdateRequest']) && $data['adminUpdateRequest'] === true;
+            $adminUpdateFields = $data['adminUpdateFields'] ?? [];
 
             $command = new EditOrder(
                 $orderId,
@@ -104,6 +105,8 @@ final class OrderController
             ($handler)($command);
             if ($wasConfirmed && $order->status() === Order::STATUS_PENDING) {
                 $emailSender->sendOrderUpdatedToAdmin($order);
+            } elseif ($adminUpdateRequest) {
+                $emailSender->sendCustomerUpdatedRequestToAdmin($order, is_array($adminUpdateFields) ? $adminUpdateFields : []);
             }
         } catch (OrderNotFound $exception) {
             return $this->errorResponse($exception->getMessage(), Response::HTTP_NOT_FOUND);

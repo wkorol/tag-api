@@ -158,6 +158,29 @@ final class OrderEmailSender
         $this->sendEmail($message, $order, 'order update request');
     }
 
+    public function sendCustomerUpdatedRequestToAdmin(Order $order, array $fields): void
+    {
+        $fields = $this->normalizeUpdateFields($fields);
+        $manageUrl = $this->adminManageUrl($order);
+        $message = (new Email())
+            ->from($this->fromAddress)
+            ->to($this->adminAddress)
+            ->subject($this->subject('Customer updated requested details', $order))
+            ->text(implode("\n", [
+                'The customer has updated the requested booking details.',
+                '',
+                $fields !== [] ? 'Updated fields:' : 'Updated fields: (not specified)',
+                $fields !== [] ? $this->formatUpdateFieldList($fields) : '',
+                '',
+                'Review the booking here:',
+                $manageUrl,
+                '',
+                ...$this->orderDetailsLines($order),
+            ]));
+
+        $this->sendEmail($message, $order, 'order update completed');
+    }
+
     public function sendOrderReminderToCustomer(Order $order): void
     {
         $manageUrl = rtrim($this->frontendBaseUrl, '/') . '/?orderId=' . $order->id()->toRfc4122();
