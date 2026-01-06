@@ -31,18 +31,20 @@ final class OrderEmailSender
 
     public function sendOrderCreatedToCustomer(Order $order): void
     {
-        $editUrl = rtrim($this->frontendBaseUrl, '/') . '/?orderId=' . $order->id()->toRfc4122();
+        $locale = $this->customerLocale($order);
+        $t = $this->translations($locale);
+        $editUrl = $this->customerBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122();
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
-            ->subject($this->subject('Order received', $order))
+            ->subject($this->subject($t['subject_order_received'], $order))
             ->text(implode("\n", [
-                'Thank you for your booking.',
+                $t['line_thank_you'],
                 '',
-                'You can edit or cancel your order using the link below:',
+                $t['line_edit_cancel'],
                 $editUrl,
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, $locale),
             ]));
 
         $this->sendEmail($message, $order, 'order confirmation');
@@ -53,7 +55,7 @@ final class OrderEmailSender
         $manageUrl = $this->adminManageUrl($order);
         $adminToken = $this->adminPanelTokenValue();
         $listUrl = $adminToken !== ''
-            ? rtrim($this->frontendBaseUrl, '/') . '/admin?token=' . $adminToken
+            ? $this->adminBaseUrl() . '/admin?token=' . $adminToken
             : null;
         $message = (new Email())
             ->from($this->fromAddress)
@@ -66,7 +68,7 @@ final class OrderEmailSender
                 $manageUrl,
                 '',
                 ...($listUrl ? ['All orders panel:', $listUrl, ''] : []),
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, 'en'),
             ]));
 
         $this->sendEmail($message, $order, 'admin notification');
@@ -85,7 +87,7 @@ final class OrderEmailSender
                 'Please review and confirm again:',
                 $manageUrl,
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, 'en'),
             ]));
 
         $this->sendEmail($message, $order, 'order updated admin');
@@ -105,7 +107,7 @@ final class OrderEmailSender
                 'Open order:',
                 $manageUrl,
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, 'en'),
             ]));
 
         $this->sendEmail($message, $order, 'order completion reminder');
@@ -113,18 +115,20 @@ final class OrderEmailSender
 
     public function sendOrderConfirmedToCustomer(Order $order): void
     {
-        $manageUrl = rtrim($this->frontendBaseUrl, '/') . '/?orderId=' . $order->id()->toRfc4122();
+        $locale = $this->customerLocale($order);
+        $t = $this->translations($locale);
+        $manageUrl = $this->customerBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122();
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
-            ->subject($this->subject('Order confirmed', $order))
+            ->subject($this->subject($t['subject_order_confirmed'], $order))
             ->text(implode("\n", [
-                'Your booking has been confirmed.',
+                $t['line_booking_confirmed'],
                 '',
-                'You can edit or cancel your order using the link below:',
+                $t['line_edit_cancel'],
                 $manageUrl,
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, $locale),
             ]));
 
         $this->sendEmail($message, $order, 'order confirmed');
@@ -137,22 +141,24 @@ final class OrderEmailSender
             return;
         }
 
-        $manageUrl = rtrim($this->frontendBaseUrl, '/') . '/?orderId=' . $order->id()->toRfc4122()
+        $locale = $this->customerLocale($order);
+        $t = $this->translations($locale);
+        $manageUrl = $this->customerBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122()
             . '&update=' . implode(',', $fields);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
-            ->subject($this->subject('Please update your booking details', $order))
+            ->subject($this->subject($t['subject_update_request'], $order))
             ->text(implode("\n", [
-                'We need a quick update to your booking details.',
+                $t['line_update_prompt'],
                 '',
-                'Please update the highlighted fields:',
-                $this->formatUpdateFieldList($fields),
+                $t['line_update_fields'],
+                $this->formatUpdateFieldList($fields, $locale),
                 '',
-                'Open your booking here:',
+                $t['line_open_booking'],
                 $manageUrl,
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, $locale),
             ]));
 
         $this->sendEmail($message, $order, 'order update request');
@@ -170,12 +176,12 @@ final class OrderEmailSender
                 'The customer has updated the requested booking details.',
                 '',
                 $fields !== [] ? 'Updated fields:' : 'Updated fields: (not specified)',
-                $fields !== [] ? $this->formatUpdateFieldList($fields) : '',
+                $fields !== [] ? $this->formatUpdateFieldList($fields, 'en') : '',
                 '',
                 'Review the booking here:',
                 $manageUrl,
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, 'en'),
             ]));
 
         $this->sendEmail($message, $order, 'order update completed');
@@ -183,18 +189,20 @@ final class OrderEmailSender
 
     public function sendOrderReminderToCustomer(Order $order): void
     {
-        $manageUrl = rtrim($this->frontendBaseUrl, '/') . '/?orderId=' . $order->id()->toRfc4122();
+        $locale = $this->customerLocale($order);
+        $t = $this->translations($locale);
+        $manageUrl = $this->customerBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122();
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
-            ->subject($this->subject('24h reminder', $order))
+            ->subject($this->subject($t['subject_reminder'], $order))
             ->text(implode("\n", [
-                'This is a friendly reminder that your booking is scheduled within 24 hours.',
+                $t['line_reminder'],
                 '',
-                'You can edit or cancel your order using the link below:',
+                $t['line_edit_cancel'],
                 $manageUrl,
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, $locale),
             ]));
 
         $this->sendEmail($message, $order, 'order reminder');
@@ -202,22 +210,24 @@ final class OrderEmailSender
 
     public function sendPriceProposalToCustomer(Order $order, string $price, string $acceptUrl, string $rejectUrl): void
     {
+        $locale = $this->customerLocale($order);
+        $t = $this->translations($locale);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
-            ->subject($this->subject('New price proposed', $order))
+            ->subject($this->subject($t['subject_price_proposed'], $order))
             ->text(implode("\n", [
-                'We have proposed a new price for your booking.',
+                $t['line_price_proposed'],
                 '',
-                'Proposed price: ' . $price,
+                $t['line_proposed_price'] . ' ' . $price,
                 '',
-                'Accept the new price:',
+                $t['line_accept_price'],
                 $acceptUrl,
                 '',
-                'Reject and cancel the order:',
+                $t['line_reject_price'],
                 $rejectUrl,
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, $locale),
             ]));
 
         $this->sendEmail($message, $order, 'price proposal');
@@ -225,17 +235,19 @@ final class OrderEmailSender
 
     public function sendOrderRejectedToCustomer(Order $order, string $reason): void
     {
+        $locale = $this->customerLocale($order);
+        $t = $this->translations($locale);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
-            ->subject($this->subject('Order rejected', $order))
+            ->subject($this->subject($t['subject_order_rejected'], $order))
             ->text(implode("\n", [
-                'We are sorry, but your booking has been rejected.',
+                $t['line_rejected_intro'],
                 '',
-                'Reason:',
+                $t['line_reason'],
                 $reason,
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, $locale),
             ]));
 
         $this->sendEmail($message, $order, 'order rejected');
@@ -243,18 +255,20 @@ final class OrderEmailSender
 
     public function sendOrderCancelledToCustomer(Order $order): void
     {
-        $cancelUrl = rtrim($this->frontendBaseUrl, '/') . '/?orderId=' . $order->id()->toRfc4122() . '&cancelled=1';
+        $locale = $this->customerLocale($order);
+        $t = $this->translations($locale);
+        $cancelUrl = $this->customerBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122() . '&cancelled=1';
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
-            ->subject($this->subject('Order cancelled', $order))
+            ->subject($this->subject($t['subject_order_cancelled'], $order))
             ->text(implode("\n", [
-                'Your booking has been cancelled as requested.',
+                $t['line_cancelled'],
                 '',
-                'View the cancellation summary:',
+                $t['line_view_cancel'],
                 $cancelUrl,
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, $locale),
             ]));
 
         $this->sendEmail($message, $order, 'order cancelled');
@@ -269,7 +283,7 @@ final class OrderEmailSender
             ->text(implode("\n", [
                 'The customer cancelled the order.',
                 '',
-                ...$this->orderDetailsLines($order),
+                ...$this->orderDetailsLines($order, 'en'),
             ]));
 
         $this->sendEmail($message, $order, 'order cancelled admin');
@@ -300,7 +314,7 @@ final class OrderEmailSender
 
     private function adminManageUrl(Order $order): string
     {
-        $manageUrl = rtrim($this->frontendBaseUrl, '/') . '/admin/orders/' . $order->id()->toRfc4122();
+        $manageUrl = $this->adminBaseUrl() . '/admin/orders/' . $order->id()->toRfc4122();
         $token = $this->adminPanelTokenValue() !== ''
             ? $this->adminPanelTokenValue()
             : ($order->confirmationToken() ?? '');
@@ -333,13 +347,19 @@ final class OrderEmailSender
         return array_values(array_unique($normalized));
     }
 
-    private function formatUpdateFieldList(array $fields): string
+    private function formatUpdateFieldList(array $fields, string $locale): string
     {
-        $labels = [
-            'phone' => 'Phone number',
-            'email' => 'Email address',
-            'flight' => 'Flight number',
-        ];
+        $labels = $locale === 'pl'
+            ? [
+                'phone' => 'Numer telefonu',
+                'email' => 'Adres e-mail',
+                'flight' => 'Numer lotu',
+            ]
+            : [
+                'phone' => 'Phone number',
+                'email' => 'Email address',
+                'flight' => 'Flight number',
+            ];
 
         $items = array_map(
             fn (string $field) => '- ' . ($labels[$field] ?? $field),
@@ -349,38 +369,71 @@ final class OrderEmailSender
         return implode("\n", $items);
     }
 
-    private function orderDetailsLines(Order $order): array
+    private function orderDetailsLines(Order $order, string $locale): array
     {
+        $labels = $locale === 'pl'
+            ? [
+                'order_number' => 'Nr zamówienia',
+                'order_id' => 'ID zamówienia',
+                'customer' => 'Klient',
+                'customer_email' => 'E-mail klienta',
+                'phone' => 'Telefon',
+                'pickup_address' => 'Adres odbioru',
+                'date' => 'Data',
+                'pickup_time' => 'Godzina odbioru',
+                'flight_number' => 'Numer lotu',
+                'price' => 'Cena',
+                'passengers' => 'Pasażerowie',
+                'pending_price' => 'Oczekująca propozycja ceny',
+                'customer_message' => 'Wiadomość klienta',
+                'route' => 'Trasa',
+            ]
+            : [
+                'order_number' => 'Order number',
+                'order_id' => 'Order ID',
+                'customer' => 'Customer',
+                'customer_email' => 'Customer email',
+                'phone' => 'Phone',
+                'pickup_address' => 'Pickup address',
+                'date' => 'Date',
+                'pickup_time' => 'Pickup time',
+                'flight_number' => 'Flight number',
+                'price' => 'Price',
+                'passengers' => 'Passengers',
+                'pending_price' => 'Pending price proposal',
+                'customer_message' => 'Customer message',
+                'route' => 'Route',
+            ];
         $details = [
-            'Order number: ' . $order->generatedId(),
-            'Order ID: ' . $order->id()->toRfc4122(),
-            'Customer: ' . $order->fullName(),
-            'Customer email: ' . $order->emailAddress(),
-            'Phone: ' . $order->phoneNumber(),
-            'Pickup address: ' . $order->pickupAddress(),
-            'Date: ' . $order->date()->format('Y-m-d'),
-            'Pickup time: ' . $order->pickupTime(),
-            'Flight number: ' . $order->flightNumber(),
-            'Price: ' . $order->proposedPrice() . ' PLN',
+            $labels['order_number'] . ': ' . $order->generatedId(),
+            $labels['order_id'] . ': ' . $order->id()->toRfc4122(),
+            $labels['customer'] . ': ' . $order->fullName(),
+            $labels['customer_email'] . ': ' . $order->emailAddress(),
+            $labels['phone'] . ': ' . $order->phoneNumber(),
+            $labels['pickup_address'] . ': ' . $order->pickupAddress(),
+            $labels['date'] . ': ' . $order->date()->format('Y-m-d'),
+            $labels['pickup_time'] . ': ' . $order->pickupTime(),
+            $labels['flight_number'] . ': ' . $order->flightNumber(),
+            $labels['price'] . ': ' . $order->proposedPrice() . ' PLN',
         ];
 
         $passengers = $this->extractPassengers($order->additionalNotes());
         if ($passengers !== null) {
-            $details[] = 'Passengers: ' . $passengers;
+            $details[] = $labels['passengers'] . ': ' . $passengers;
         }
 
         if ($order->pendingPrice() !== null) {
-            $details[] = 'Pending price proposal: ' . $order->pendingPrice() . ' PLN';
+            $details[] = $labels['pending_price'] . ': ' . $order->pendingPrice() . ' PLN';
         }
 
         $customerMessage = $this->extractCustomerMessage($order->additionalNotes());
         if ($customerMessage !== null) {
-            $details[] = 'Customer message: ' . $customerMessage;
+            $details[] = $labels['customer_message'] . ': ' . $customerMessage;
         }
 
         $route = $this->extractRoute($order->additionalNotes());
         if ($route !== null) {
-            $details[] = 'Route: ' . $route;
+            $details[] = $labels['route'] . ': ' . $route;
         }
 
         return $details;
@@ -458,5 +511,80 @@ final class OrderEmailSender
         }
 
         return $trimmed;
+    }
+
+    private function customerLocale(Order $order): string
+    {
+        return $order->locale() === 'pl' ? 'pl' : 'en';
+    }
+
+    private function customerBaseUrl(Order $order): string
+    {
+        $base = rtrim($this->frontendBaseUrl, '/');
+        $localePath = $this->customerLocale($order) === 'pl' ? '/pl' : '/en';
+
+        return $base . $localePath;
+    }
+
+    private function adminBaseUrl(): string
+    {
+        $base = rtrim($this->frontendBaseUrl, '/');
+
+        return $base . '/en';
+    }
+
+    private function translations(string $locale): array
+    {
+        if ($locale === 'pl') {
+            return [
+                'subject_order_received' => 'Zamówienie przyjęte',
+                'subject_order_confirmed' => 'Zamówienie potwierdzone',
+                'subject_update_request' => 'Prośba o aktualizację rezerwacji',
+                'subject_reminder' => 'Przypomnienie 24h',
+                'subject_price_proposed' => 'Nowa propozycja ceny',
+                'subject_order_rejected' => 'Zamówienie odrzucone',
+                'subject_order_cancelled' => 'Zamówienie anulowane',
+                'line_thank_you' => 'Dziękujemy za rezerwację.',
+                'line_edit_cancel' => 'Możesz edytować lub anulować zamówienie, korzystając z poniższego linku:',
+                'line_booking_confirmed' => 'Twoja rezerwacja została potwierdzona.',
+                'line_update_prompt' => 'Potrzebujemy krótkiej aktualizacji Twoich danych rezerwacji.',
+                'line_update_fields' => 'Zaktualizuj podświetlone pola:',
+                'line_open_booking' => 'Otwórz rezerwację tutaj:',
+                'line_reminder' => 'To przypomnienie, że Twoja rezerwacja jest zaplanowana w ciągu 24 godzin.',
+                'line_price_proposed' => 'Zaproponowaliśmy nową cenę za Twoją rezerwację.',
+                'line_proposed_price' => 'Proponowana cena:',
+                'line_accept_price' => 'Zaakceptuj nową cenę:',
+                'line_reject_price' => 'Odrzuć i anuluj zamówienie:',
+                'line_rejected_intro' => 'Przykro nam, ale Twoja rezerwacja została odrzucona.',
+                'line_reason' => 'Powód:',
+                'line_cancelled' => 'Twoja rezerwacja została anulowana zgodnie z prośbą.',
+                'line_view_cancel' => 'Zobacz podsumowanie anulowania:',
+            ];
+        }
+
+        return [
+            'subject_order_received' => 'Order received',
+            'subject_order_confirmed' => 'Order confirmed',
+            'subject_update_request' => 'Please update your booking details',
+            'subject_reminder' => '24h reminder',
+            'subject_price_proposed' => 'New price proposed',
+            'subject_order_rejected' => 'Order rejected',
+            'subject_order_cancelled' => 'Order cancelled',
+            'line_thank_you' => 'Thank you for your booking.',
+            'line_edit_cancel' => 'You can edit or cancel your order using the link below:',
+            'line_booking_confirmed' => 'Your booking has been confirmed.',
+            'line_update_prompt' => 'We need a quick update to your booking details.',
+            'line_update_fields' => 'Please update the highlighted fields:',
+            'line_open_booking' => 'Open your booking here:',
+            'line_reminder' => 'This is a friendly reminder that your booking is scheduled within 24 hours.',
+            'line_price_proposed' => 'We have proposed a new price for your booking.',
+            'line_proposed_price' => 'Proposed price:',
+            'line_accept_price' => 'Accept the new price:',
+            'line_reject_price' => 'Reject and cancel the order:',
+            'line_rejected_intro' => 'We are sorry, but your booking has been rejected.',
+            'line_reason' => 'Reason:',
+            'line_cancelled' => 'Your booking has been cancelled as requested.',
+            'line_view_cancel' => 'View the cancellation summary:',
+        ];
     }
 }

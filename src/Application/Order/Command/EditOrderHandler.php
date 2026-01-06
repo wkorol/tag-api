@@ -40,6 +40,9 @@ final class EditOrderHandler
             $command->phoneNumber,
             $command->additionalNotes
         );
+        if ($command->locale !== null) {
+            $order->updateLocale($command->locale);
+        }
 
         $this->entityManager->flush();
     }

@@ -20,6 +20,7 @@
         <field name="emailAddress" type="string" length="255" />
         <field name="phoneNumber" type="string" length="32" />
         <field name="additionalNotes" type="text" />
+        <field name="locale" type="string" length="2" />
         <field name="status" type="string" length="16" />
         <field name="confirmationToken" type="string" length="64" nullable="true" />
         <field name="rejectionReason" type="text" nullable="true" />

@@ -47,7 +47,8 @@ final class OrderController
                 $this->stringFrom($data, 'fullName'),
                 $this->stringFrom($data, 'emailAddress'),
                 $this->phoneFrom($data),
-                $this->stringFrom($data, 'additionalNotes', true)
+                $this->stringFrom($data, 'additionalNotes', true),
+                $this->localeFrom($request, $data)
             );
         } catch (InvalidArgumentException|ValueError $exception) {
             return $this->errorResponse($exception->getMessage(), Response::HTTP_BAD_REQUEST);
@@ -99,7 +100,8 @@ final class OrderController
                 $this->stringFrom($data, 'emailAddress'),
                 $this->phoneFrom($data),
                 $this->stringFrom($data, 'additionalNotes', true),
-                $adminUpdateRequest
+                $adminUpdateRequest,
+                $this->optionalLocaleFrom($data)
             );
 
             ($handler)($command);
@@ -233,14 +235,14 @@ final class OrderController
             $entityManager->flush();
             $emailSender->sendOrderConfirmedToCustomer($order);
 
-            $redirectUrl = rtrim($this->frontendBaseUrl(), '/') . '/admin/orders/' . $order->id()->toRfc4122();
+            $redirectUrl = $this->adminFrontendBaseUrl() . '/admin/orders/' . $order->id()->toRfc4122();
             if ($this->adminPanelToken() !== '') {
                 $redirectUrl .= '?token=' . urlencode($this->adminPanelToken());
             }
             return new RedirectResponse($redirectUrl);
         }
 
-        $redirectUrl = rtrim($this->frontendBaseUrl(), '/') . '/admin/orders/' . $order->id()->toRfc4122();
+        $redirectUrl = $this->adminFrontendBaseUrl() . '/admin/orders/' . $order->id()->toRfc4122();
         if ($this->adminPanelToken() !== '') {
             $redirectUrl .= '?token=' . urlencode($this->adminPanelToken()) . '&status=processed';
         }
@@ -254,7 +256,7 @@ final class OrderController
         EntityManagerInterface $entityManager
     ): Response {
         $token = $request->query->get('token');
-        $frontendUrl = rtrim($this->frontendBaseUrl(), '/') . '/admin/orders/' . $id;
+        $frontendUrl = $this->adminFrontendBaseUrl() . '/admin/orders/' . $id;
         if (is_string($token) && trim($token) !== '') {
             $frontendUrl .= '?token=' . urlencode($token);
         }
@@ -323,7 +325,7 @@ final class OrderController
         $entityManager->flush();
         $emailSender->sendOrderConfirmedToCustomer($order);
 
-        $redirectUrl = rtrim($this->frontendBaseUrl(), '/') . '/?orderId=' . $order->id()->toRfc4122()
+        $redirectUrl = $this->customerFrontendBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122()
             . '&priceAccepted=1';
         return new RedirectResponse($redirectUrl);
     }
@@ -509,7 +511,7 @@ final class OrderController
         $emailSender->sendOrderCancelledToAdmin($order);
         ($handler)(new DeleteOrder($orderId));
 
-        $redirectUrl = rtrim($this->frontendBaseUrl(), '/') . '/?orderId=' . $order->id()->toRfc4122() . '&cancelled=1';
+        $redirectUrl = $this->customerFrontendBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122() . '&cancelled=1';
 
         return new RedirectResponse($redirectUrl);
     }
@@ -633,6 +635,42 @@ final class OrderController
         return new JsonResponse(['error' => $message], $status);
     }
 
+    private function localeFrom(Request $request, array $data): string
+    {
+        if (array_key_exists('locale', $data)) {
+            $locale = strtolower($this->stringFrom($data, 'locale'));
+            if (!in_array($locale, ['en', 'pl'], true)) {
+                throw new InvalidArgumentException('Invalid "locale" value.');
+            }
+
+            return $locale;
+        }
+
+        $header = $request->headers->get('Accept-Language');
+        if (is_string($header)) {
+            $first = strtolower(trim(explode(',', $header)[0] ?? ''));
+            if (str_starts_with($first, 'pl')) {
+                return 'pl';
+            }
+        }
+
+        return 'en';
+    }
+
+    private function optionalLocaleFrom(array $data): ?string
+    {
+        if (!array_key_exists('locale', $data)) {
+            return null;
+        }
+
+        $locale = strtolower($this->stringFrom($data, 'locale'));
+        if (!in_array($locale, ['en', 'pl'], true)) {
+            throw new InvalidArgumentException('Invalid "locale" value.');
+        }
+
+        return $locale;
+    }
+
     private function fetchOrder(EntityManagerInterface $entityManager, Uuid $id): Order
     {
         $order = $entityManager->find(Order::class, $id);
@@ -671,6 +709,21 @@ final class OrderController
     private function frontendBaseUrl(): string
     {
         return getenv('FRONTEND_BASE_URL') ?: 'http://localhost:3000';
+    }
+
+    private function customerFrontendBaseUrl(Order $order): string
+    {
+        $base = rtrim($this->frontendBaseUrl(), '/');
+        $locale = $order->locale() === 'pl' ? 'pl' : 'en';
+
+        return $base . '/' . $locale;
+    }
+
+    private function adminFrontendBaseUrl(): string
+    {
+        $base = rtrim($this->frontendBaseUrl(), '/');
+
+        return $base . '/en';
     }
 
     private function adminPanelToken(): string
@@ -786,7 +839,9 @@ final class OrderController
 
         $reason = is_string($message) && trim($message) !== ''
             ? trim($message)
-            : 'The order was rejected because we cannot fulfill it at the requested time.';
+            : ($order->locale() === 'pl'
+                ? 'Zamówienie zostało odrzucone, ponieważ nie możemy zrealizować go w wybranym terminie.'
+                : 'The order was rejected because we cannot fulfill it at the requested time.');
 
         if ($order->status() === Order::STATUS_PENDING) {
             $order->reject($reason);

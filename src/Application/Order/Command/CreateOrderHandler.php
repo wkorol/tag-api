@@ -35,6 +35,7 @@ final class CreateOrderHandler
             $command->emailAddress,
             $command->phoneNumber,
             $command->additionalNotes,
+            $command->locale,
             Order::STATUS_PENDING,
             $confirmationToken,
             null,

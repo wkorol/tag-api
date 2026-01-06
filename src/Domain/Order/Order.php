@@ -29,6 +29,7 @@ final class Order
     private string $emailAddress;
     private string $phoneNumber;
     private string $additionalNotes;
+    private string $locale;
     private string $status;
     private ?string $confirmationToken;
     private ?string $rejectionReason;
@@ -50,6 +51,7 @@ final class Order
         string $emailAddress,
         string $phoneNumber,
         string $additionalNotes,
+        string $locale,
         string $status,
         ?string $confirmationToken,
         ?string $rejectionReason,
@@ -59,6 +61,8 @@ final class Order
         ?DateTimeImmutable $customerReminderSentAt
     ) {
         $this->assertPickupTime($pickupTime);
+
+        $this->assertLocale($locale);
 
         $this->id = $id;
         $this->generatedId = $generatedId;
@@ -72,6 +76,7 @@ final class Order
         $this->emailAddress = $emailAddress;
         $this->phoneNumber = $phoneNumber;
         $this->additionalNotes = $additionalNotes;
+        $this->locale = $locale;
         $this->status = $status;
         $this->confirmationToken = $confirmationToken;
         $this->rejectionReason = $rejectionReason;
@@ -139,6 +144,11 @@ final class Order
     public function additionalNotes(): string
     {
         return $this->additionalNotes;
+    }
+
+    public function locale(): string
+    {
+        return $this->locale;
     }
 
     public function status(): string
@@ -269,10 +279,23 @@ final class Order
         $this->additionalNotes = $additionalNotes;
     }
 
+    public function updateLocale(string $locale): void
+    {
+        $this->assertLocale($locale);
+        $this->locale = $locale;
+    }
+
     private function assertPickupTime(string $pickupTime): void
     {
         if (!preg_match('/^(?:[01]\\d|2[0-3]):[0-5]\\d$/', $pickupTime)) {
             throw new InvalidArgumentException('Pickup time must be in HH:MM format.');
+        }
+    }
+
+    private function assertLocale(string $locale): void
+    {
+        if (!in_array($locale, ['en', 'pl'], true)) {
+            throw new InvalidArgumentException('Locale must be "pl" or "en".');
         }
     }
 }

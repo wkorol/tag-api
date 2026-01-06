@@ -22,7 +22,8 @@ final class EditOrder
         public readonly string $emailAddress,
         public readonly string $phoneNumber,
         public readonly string $additionalNotes,
-        public readonly bool $adminUpdateRequest = false
+        public readonly bool $adminUpdateRequest = false,
+        public readonly ?string $locale = null
     ) {
     }
 }
