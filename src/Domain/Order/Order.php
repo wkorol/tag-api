@@ -294,8 +294,8 @@ final class Order
 
     private function assertLocale(string $locale): void
     {
-        if (!in_array($locale, ['en', 'pl'], true)) {
-            throw new InvalidArgumentException('Locale must be "pl" or "en".');
+        if (!in_array($locale, ['en', 'pl', 'de', 'fi', 'no', 'sv', 'da'], true)) {
+            throw new InvalidArgumentException('Locale must be one of: en, pl, de, fi, no, sv, da.');
         }
     }
 }

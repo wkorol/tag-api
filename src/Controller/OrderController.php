@@ -639,7 +639,7 @@ final class OrderController
     {
         if (array_key_exists('locale', $data)) {
             $locale = strtolower($this->stringFrom($data, 'locale'));
-            if (!in_array($locale, ['en', 'pl'], true)) {
+            if (!in_array($locale, ['en', 'pl', 'de', 'fi', 'no', 'sv', 'da'], true)) {
                 throw new InvalidArgumentException('Invalid "locale" value.');
             }
 
@@ -649,8 +649,24 @@ final class OrderController
         $header = $request->headers->get('Accept-Language');
         if (is_string($header)) {
             $first = strtolower(trim(explode(',', $header)[0] ?? ''));
+            $first = trim(explode(';', $first)[0] ?? '');
             if (str_starts_with($first, 'pl')) {
                 return 'pl';
+            }
+            if (str_starts_with($first, 'de')) {
+                return 'de';
+            }
+            if (str_starts_with($first, 'fi')) {
+                return 'fi';
+            }
+            if (str_starts_with($first, 'no') || str_starts_with($first, 'nb') || str_starts_with($first, 'nn')) {
+                return 'no';
+            }
+            if (str_starts_with($first, 'sv')) {
+                return 'sv';
+            }
+            if (str_starts_with($first, 'da')) {
+                return 'da';
             }
         }
 
@@ -664,7 +680,7 @@ final class OrderController
         }
 
         $locale = strtolower($this->stringFrom($data, 'locale'));
-        if (!in_array($locale, ['en', 'pl'], true)) {
+        if (!in_array($locale, ['en', 'pl', 'de', 'fi', 'no', 'sv', 'da'], true)) {
             throw new InvalidArgumentException('Invalid "locale" value.');
         }
 
@@ -714,7 +730,10 @@ final class OrderController
     private function customerFrontendBaseUrl(Order $order): string
     {
         $base = rtrim($this->frontendBaseUrl(), '/');
-        $locale = $order->locale() === 'pl' ? 'pl' : 'en';
+        $locale = $order->locale();
+        if (!in_array($locale, ['en', 'pl', 'de', 'fi', 'no', 'sv', 'da'], true)) {
+            $locale = 'en';
+        }
 
         return $base . '/' . $locale;
     }

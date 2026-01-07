@@ -349,17 +349,43 @@ final class OrderEmailSender
 
     private function formatUpdateFieldList(array $fields, string $locale): string
     {
-        $labels = $locale === 'pl'
-            ? [
+        $labels = match ($locale) {
+            'pl' => [
                 'phone' => 'Numer telefonu',
                 'email' => 'Adres e-mail',
                 'flight' => 'Numer lotu',
-            ]
-            : [
+            ],
+            'de' => [
+                'phone' => 'Telefonnummer',
+                'email' => 'E-Mail-Adresse',
+                'flight' => 'Flugnummer',
+            ],
+            'fi' => [
+                'phone' => 'Puhelinnumero',
+                'email' => 'Sähköpostiosoite',
+                'flight' => 'Lennon numero',
+            ],
+            'no' => [
+                'phone' => 'Telefonnummer',
+                'email' => 'E-postadresse',
+                'flight' => 'Flynummer',
+            ],
+            'sv' => [
+                'phone' => 'Telefonnummer',
+                'email' => 'E-postadress',
+                'flight' => 'Flygnummer',
+            ],
+            'da' => [
+                'phone' => 'Telefonnummer',
+                'email' => 'E-mailadresse',
+                'flight' => 'Flynummer',
+            ],
+            default => [
                 'phone' => 'Phone number',
                 'email' => 'Email address',
                 'flight' => 'Flight number',
-            ];
+            ],
+        };
 
         $items = array_map(
             fn (string $field) => '- ' . ($labels[$field] ?? $field),
@@ -371,8 +397,8 @@ final class OrderEmailSender
 
     private function orderDetailsLines(Order $order, string $locale): array
     {
-        $labels = $locale === 'pl'
-            ? [
+        $labels = match ($locale) {
+            'pl' => [
                 'order_number' => 'Nr zamówienia',
                 'order_id' => 'ID zamówienia',
                 'customer' => 'Klient',
@@ -387,8 +413,88 @@ final class OrderEmailSender
                 'pending_price' => 'Oczekująca propozycja ceny',
                 'customer_message' => 'Wiadomość klienta',
                 'route' => 'Trasa',
-            ]
-            : [
+            ],
+            'de' => [
+                'order_number' => 'Bestellnummer',
+                'order_id' => 'Bestell-ID',
+                'customer' => 'Kunde',
+                'customer_email' => 'Kunden-E-Mail',
+                'phone' => 'Telefon',
+                'pickup_address' => 'Abholadresse',
+                'date' => 'Datum',
+                'pickup_time' => 'Abholzeit',
+                'flight_number' => 'Flugnummer',
+                'price' => 'Preis',
+                'passengers' => 'Passagiere',
+                'pending_price' => 'Ausstehender Preisvorschlag',
+                'customer_message' => 'Nachricht des Kunden',
+                'route' => 'Route',
+            ],
+            'fi' => [
+                'order_number' => 'Tilausnumero',
+                'order_id' => 'Tilaus-ID',
+                'customer' => 'Asiakas',
+                'customer_email' => 'Asiakkaan sähköposti',
+                'phone' => 'Puhelin',
+                'pickup_address' => 'Nouto-osoite',
+                'date' => 'Päivämäärä',
+                'pickup_time' => 'Noutoaika',
+                'flight_number' => 'Lennon numero',
+                'price' => 'Hinta',
+                'passengers' => 'Matkustajat',
+                'pending_price' => 'Odottava hintatarjous',
+                'customer_message' => 'Asiakkaan viesti',
+                'route' => 'Reitti',
+            ],
+            'no' => [
+                'order_number' => 'Bestillingsnummer',
+                'order_id' => 'Bestillings-ID',
+                'customer' => 'Kunde',
+                'customer_email' => 'Kundens e-post',
+                'phone' => 'Telefon',
+                'pickup_address' => 'Henteadresse',
+                'date' => 'Dato',
+                'pickup_time' => 'Hentetid',
+                'flight_number' => 'Flynummer',
+                'price' => 'Pris',
+                'passengers' => 'Passasjerer',
+                'pending_price' => 'Ventende prisforslag',
+                'customer_message' => 'Kundens melding',
+                'route' => 'Rute',
+            ],
+            'sv' => [
+                'order_number' => 'Beställningsnummer',
+                'order_id' => 'Beställnings-ID',
+                'customer' => 'Kund',
+                'customer_email' => 'Kundens e-post',
+                'phone' => 'Telefon',
+                'pickup_address' => 'Upphämtningsadress',
+                'date' => 'Datum',
+                'pickup_time' => 'Upphämtningstid',
+                'flight_number' => 'Flygnummer',
+                'price' => 'Pris',
+                'passengers' => 'Passagerare',
+                'pending_price' => 'Väntande prisförslag',
+                'customer_message' => 'Kundens meddelande',
+                'route' => 'Rutt',
+            ],
+            'da' => [
+                'order_number' => 'Bestillingsnummer',
+                'order_id' => 'Bestillings-ID',
+                'customer' => 'Kunde',
+                'customer_email' => 'Kundens e-mail',
+                'phone' => 'Telefon',
+                'pickup_address' => 'Afhentningsadresse',
+                'date' => 'Dato',
+                'pickup_time' => 'Afhentningstid',
+                'flight_number' => 'Flynummer',
+                'price' => 'Pris',
+                'passengers' => 'Passagerer',
+                'pending_price' => 'Afventende prisforslag',
+                'customer_message' => 'Kundens besked',
+                'route' => 'Rute',
+            ],
+            default => [
                 'order_number' => 'Order number',
                 'order_id' => 'Order ID',
                 'customer' => 'Customer',
@@ -403,7 +509,8 @@ final class OrderEmailSender
                 'pending_price' => 'Pending price proposal',
                 'customer_message' => 'Customer message',
                 'route' => 'Route',
-            ];
+            ],
+        };
         $details = [
             $labels['order_number'] . ': ' . $order->generatedId(),
             $labels['order_id'] . ': ' . $order->id()->toRfc4122(),
@@ -515,13 +622,14 @@ final class OrderEmailSender
 
     private function customerLocale(Order $order): string
     {
-        return $order->locale() === 'pl' ? 'pl' : 'en';
+        $locale = $order->locale();
+        return in_array($locale, ['en', 'pl', 'de', 'fi', 'no', 'sv', 'da'], true) ? $locale : 'en';
     }
 
     private function customerBaseUrl(Order $order): string
     {
         $base = rtrim($this->frontendBaseUrl, '/');
-        $localePath = $this->customerLocale($order) === 'pl' ? '/pl' : '/en';
+        $localePath = '/' . $this->customerLocale($order);
 
         return $base . $localePath;
     }
@@ -535,8 +643,8 @@ final class OrderEmailSender
 
     private function translations(string $locale): array
     {
-        if ($locale === 'pl') {
-            return [
+        return match ($locale) {
+            'pl' => [
                 'subject_order_received' => 'Zamówienie przyjęte',
                 'subject_order_confirmed' => 'Zamówienie potwierdzone',
                 'subject_update_request' => 'Prośba o aktualizację rezerwacji',
@@ -559,32 +667,151 @@ final class OrderEmailSender
                 'line_reason' => 'Powód:',
                 'line_cancelled' => 'Twoja rezerwacja została anulowana zgodnie z prośbą.',
                 'line_view_cancel' => 'Zobacz podsumowanie anulowania:',
-            ];
-        }
-
-        return [
-            'subject_order_received' => 'Order received',
-            'subject_order_confirmed' => 'Order confirmed',
-            'subject_update_request' => 'Please update your booking details',
-            'subject_reminder' => '24h reminder',
-            'subject_price_proposed' => 'New price proposed',
-            'subject_order_rejected' => 'Order rejected',
-            'subject_order_cancelled' => 'Order cancelled',
-            'line_thank_you' => 'Thank you for your booking.',
-            'line_edit_cancel' => 'You can edit or cancel your order using the link below:',
-            'line_booking_confirmed' => 'Your booking has been confirmed.',
-            'line_update_prompt' => 'We need a quick update to your booking details.',
-            'line_update_fields' => 'Please update the highlighted fields:',
-            'line_open_booking' => 'Open your booking here:',
-            'line_reminder' => 'This is a friendly reminder that your booking is scheduled within 24 hours.',
-            'line_price_proposed' => 'We have proposed a new price for your booking.',
-            'line_proposed_price' => 'Proposed price:',
-            'line_accept_price' => 'Accept the new price:',
-            'line_reject_price' => 'Reject and cancel the order:',
-            'line_rejected_intro' => 'We are sorry, but your booking has been rejected.',
-            'line_reason' => 'Reason:',
-            'line_cancelled' => 'Your booking has been cancelled as requested.',
-            'line_view_cancel' => 'View the cancellation summary:',
-        ];
+            ],
+            'de' => [
+                'subject_order_received' => 'Bestellung erhalten',
+                'subject_order_confirmed' => 'Bestellung bestätigt',
+                'subject_update_request' => 'Bitte aktualisieren Sie Ihre Buchungsdaten',
+                'subject_reminder' => '24h Erinnerung',
+                'subject_price_proposed' => 'Neuer Preis vorgeschlagen',
+                'subject_order_rejected' => 'Bestellung abgelehnt',
+                'subject_order_cancelled' => 'Bestellung storniert',
+                'line_thank_you' => 'Vielen Dank für Ihre Buchung.',
+                'line_edit_cancel' => 'Sie können Ihre Bestellung über den folgenden Link bearbeiten oder stornieren:',
+                'line_booking_confirmed' => 'Ihre Buchung wurde bestätigt.',
+                'line_update_prompt' => 'Wir benötigen eine kurze Aktualisierung Ihrer Buchungsdaten.',
+                'line_update_fields' => 'Bitte aktualisieren Sie die markierten Felder:',
+                'line_open_booking' => 'Öffnen Sie Ihre Buchung hier:',
+                'line_reminder' => 'Dies ist eine freundliche Erinnerung, dass Ihre Buchung innerhalb von 24 Stunden stattfindet.',
+                'line_price_proposed' => 'Wir haben einen neuen Preis für Ihre Buchung vorgeschlagen.',
+                'line_proposed_price' => 'Vorgeschlagener Preis:',
+                'line_accept_price' => 'Neuen Preis akzeptieren:',
+                'line_reject_price' => 'Ablehnen und Bestellung stornieren:',
+                'line_rejected_intro' => 'Es tut uns leid, aber Ihre Buchung wurde abgelehnt.',
+                'line_reason' => 'Grund:',
+                'line_cancelled' => 'Ihre Buchung wurde wie gewünscht storniert.',
+                'line_view_cancel' => 'Stornierungsübersicht anzeigen:',
+            ],
+            'fi' => [
+                'subject_order_received' => 'Tilaus vastaanotettu',
+                'subject_order_confirmed' => 'Tilaus vahvistettu',
+                'subject_update_request' => 'Päivitä varauksen tiedot',
+                'subject_reminder' => '24 h muistutus',
+                'subject_price_proposed' => 'Uusi hintaehdotus',
+                'subject_order_rejected' => 'Tilaus hylätty',
+                'subject_order_cancelled' => 'Tilaus peruttu',
+                'line_thank_you' => 'Kiitos varauksestasi.',
+                'line_edit_cancel' => 'Voit muokata tai peruuttaa tilauksen alla olevasta linkistä:',
+                'line_booking_confirmed' => 'Varauksesi on vahvistettu.',
+                'line_update_prompt' => 'Tarvitsemme lyhyen päivityksen varauksesi tietoihin.',
+                'line_update_fields' => 'Päivitä korostetut kentät:',
+                'line_open_booking' => 'Avaa varauksesi tästä:',
+                'line_reminder' => 'Tämä on muistutus siitä, että varauksesi on 24 tunnin sisällä.',
+                'line_price_proposed' => 'Olemme ehdottaneet uutta hintaa varauksellesi.',
+                'line_proposed_price' => 'Ehdotettu hinta:',
+                'line_accept_price' => 'Hyväksy uusi hinta:',
+                'line_reject_price' => 'Hylkää ja peruuta tilaus:',
+                'line_rejected_intro' => 'Valitettavasti varauksesi on hylätty.',
+                'line_reason' => 'Syy:',
+                'line_cancelled' => 'Varauksesi on peruttu pyynnöstäsi.',
+                'line_view_cancel' => 'Näytä peruutuksen yhteenveto:',
+            ],
+            'no' => [
+                'subject_order_received' => 'Bestilling mottatt',
+                'subject_order_confirmed' => 'Bestilling bekreftet',
+                'subject_update_request' => 'Vennligst oppdater bestillingsdetaljer',
+                'subject_reminder' => '24 t påminnelse',
+                'subject_price_proposed' => 'Ny pris foreslått',
+                'subject_order_rejected' => 'Bestilling avvist',
+                'subject_order_cancelled' => 'Bestilling avbestilt',
+                'line_thank_you' => 'Takk for bestillingen.',
+                'line_edit_cancel' => 'Du kan redigere eller avbestille bestillingen via lenken under:',
+                'line_booking_confirmed' => 'Bestillingen din er bekreftet.',
+                'line_update_prompt' => 'Vi trenger en kort oppdatering av bestillingsdetaljene.',
+                'line_update_fields' => 'Vennligst oppdater de markerte feltene:',
+                'line_open_booking' => 'Åpne bestillingen her:',
+                'line_reminder' => 'Dette er en vennlig påminnelse om at bestillingen din er innen 24 timer.',
+                'line_price_proposed' => 'Vi har foreslått en ny pris for bestillingen din.',
+                'line_proposed_price' => 'Foreslått pris:',
+                'line_accept_price' => 'Godta den nye prisen:',
+                'line_reject_price' => 'Avslå og avbestill bestillingen:',
+                'line_rejected_intro' => 'Beklager, bestillingen din er avvist.',
+                'line_reason' => 'Årsak:',
+                'line_cancelled' => 'Bestillingen din er avbestilt som forespurt.',
+                'line_view_cancel' => 'Se avbestillingsoversikten:',
+            ],
+            'sv' => [
+                'subject_order_received' => 'Beställning mottagen',
+                'subject_order_confirmed' => 'Beställning bekräftad',
+                'subject_update_request' => 'Vänligen uppdatera dina bokningsuppgifter',
+                'subject_reminder' => '24 h påminnelse',
+                'subject_price_proposed' => 'Nytt pris föreslaget',
+                'subject_order_rejected' => 'Beställning avvisad',
+                'subject_order_cancelled' => 'Beställning avbokad',
+                'line_thank_you' => 'Tack för din bokning.',
+                'line_edit_cancel' => 'Du kan redigera eller avboka beställningen via länken nedan:',
+                'line_booking_confirmed' => 'Din bokning har bekräftats.',
+                'line_update_prompt' => 'Vi behöver en snabb uppdatering av dina bokningsuppgifter.',
+                'line_update_fields' => 'Vänligen uppdatera de markerade fälten:',
+                'line_open_booking' => 'Öppna din bokning här:',
+                'line_reminder' => 'Detta är en vänlig påminnelse om att din bokning är inom 24 timmar.',
+                'line_price_proposed' => 'Vi har föreslagit ett nytt pris för din bokning.',
+                'line_proposed_price' => 'Föreslaget pris:',
+                'line_accept_price' => 'Acceptera det nya priset:',
+                'line_reject_price' => 'Avvisa och avboka beställningen:',
+                'line_rejected_intro' => 'Tyvärr har din bokning avvisats.',
+                'line_reason' => 'Orsak:',
+                'line_cancelled' => 'Din bokning har avbokats enligt din begäran.',
+                'line_view_cancel' => 'Visa avbokningssammanfattning:',
+            ],
+            'da' => [
+                'subject_order_received' => 'Bestilling modtaget',
+                'subject_order_confirmed' => 'Bestilling bekræftet',
+                'subject_update_request' => 'Opdater venligst dine bookingoplysninger',
+                'subject_reminder' => '24 t påmindelse',
+                'subject_price_proposed' => 'Ny pris foreslået',
+                'subject_order_rejected' => 'Bestilling afvist',
+                'subject_order_cancelled' => 'Bestilling annulleret',
+                'line_thank_you' => 'Tak for din booking.',
+                'line_edit_cancel' => 'Du kan redigere eller annullere bestillingen via linket nedenfor:',
+                'line_booking_confirmed' => 'Din booking er bekræftet.',
+                'line_update_prompt' => 'Vi har brug for en kort opdatering af dine bookingoplysninger.',
+                'line_update_fields' => 'Opdater venligst de markerede felter:',
+                'line_open_booking' => 'Åbn din booking her:',
+                'line_reminder' => 'Dette er en venlig påmindelse om, at din booking er inden for 24 timer.',
+                'line_price_proposed' => 'Vi har foreslået en ny pris for din booking.',
+                'line_proposed_price' => 'Foreslået pris:',
+                'line_accept_price' => 'Accepter den nye pris:',
+                'line_reject_price' => 'Afvis og annuller bestillingen:',
+                'line_rejected_intro' => 'Beklager, din booking blev afvist.',
+                'line_reason' => 'Årsag:',
+                'line_cancelled' => 'Din booking er annulleret efter ønske.',
+                'line_view_cancel' => 'Se annulleringsoversigten:',
+            ],
+            default => [
+                'subject_order_received' => 'Order received',
+                'subject_order_confirmed' => 'Order confirmed',
+                'subject_update_request' => 'Please update your booking details',
+                'subject_reminder' => '24h reminder',
+                'subject_price_proposed' => 'New price proposed',
+                'subject_order_rejected' => 'Order rejected',
+                'subject_order_cancelled' => 'Order cancelled',
+                'line_thank_you' => 'Thank you for your booking.',
+                'line_edit_cancel' => 'You can edit or cancel your order using the link below:',
+                'line_booking_confirmed' => 'Your booking has been confirmed.',
+                'line_update_prompt' => 'We need a quick update to your booking details.',
+                'line_update_fields' => 'Please update the highlighted fields:',
+                'line_open_booking' => 'Open your booking here:',
+                'line_reminder' => 'This is a friendly reminder that your booking is scheduled within 24 hours.',
+                'line_price_proposed' => 'We have proposed a new price for your booking.',
+                'line_proposed_price' => 'Proposed price:',
+                'line_accept_price' => 'Accept the new price:',
+                'line_reject_price' => 'Reject and cancel the order:',
+                'line_rejected_intro' => 'We are sorry, but your booking has been rejected.',
+                'line_reason' => 'Reason:',
+                'line_cancelled' => 'Your booking has been cancelled as requested.',
+                'line_view_cancel' => 'View the cancellation summary:',
+            ],
+        };
     }
 }
