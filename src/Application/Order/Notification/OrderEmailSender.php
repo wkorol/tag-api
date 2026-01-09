@@ -413,6 +413,11 @@ final class OrderEmailSender
                 'pending_price' => 'Oczekująca propozycja ceny',
                 'customer_message' => 'Wiadomość klienta',
                 'route' => 'Trasa',
+                'sign_service' => 'Opcja odbioru',
+                'sign_service_sign' => 'Odbiór z kartką',
+                'sign_service_self' => 'Samodzielne znalezienie kierowcy',
+                'sign_fee' => 'Dopłata za kartkę',
+                'sign_text' => 'Tekst na tabliczce',
             ],
             'de' => [
                 'order_number' => 'Bestellnummer',
@@ -429,6 +434,11 @@ final class OrderEmailSender
                 'pending_price' => 'Ausstehender Preisvorschlag',
                 'customer_message' => 'Nachricht des Kunden',
                 'route' => 'Route',
+                'sign_service' => 'Abholservice',
+                'sign_service_sign' => 'Abholung mit Namensschild',
+                'sign_service_self' => 'Fahrer selbst finden',
+                'sign_fee' => 'Aufpreis für Schild',
+                'sign_text' => 'Text für Namensschild',
             ],
             'fi' => [
                 'order_number' => 'Tilausnumero',
@@ -445,6 +455,11 @@ final class OrderEmailSender
                 'pending_price' => 'Odottava hintatarjous',
                 'customer_message' => 'Asiakkaan viesti',
                 'route' => 'Reitti',
+                'sign_service' => 'Noutotapa',
+                'sign_service_sign' => 'Nouto nimikyltillä',
+                'sign_service_self' => 'Kuljettajan etsiminen itse',
+                'sign_fee' => 'Kyltin lisämaksu',
+                'sign_text' => 'Nimikyltti',
             ],
             'no' => [
                 'order_number' => 'Bestillingsnummer',
@@ -461,6 +476,11 @@ final class OrderEmailSender
                 'pending_price' => 'Ventende prisforslag',
                 'customer_message' => 'Kundens melding',
                 'route' => 'Rute',
+                'sign_service' => 'Hentevalg',
+                'sign_service_sign' => 'Møt med navneskilt',
+                'sign_service_self' => 'Finn sjåføren selv',
+                'sign_fee' => 'Skiltgebyr',
+                'sign_text' => 'Tekst på skilt',
             ],
             'sv' => [
                 'order_number' => 'Beställningsnummer',
@@ -477,6 +497,11 @@ final class OrderEmailSender
                 'pending_price' => 'Väntande prisförslag',
                 'customer_message' => 'Kundens meddelande',
                 'route' => 'Rutt',
+                'sign_service' => 'Upphämtningssätt',
+                'sign_service_sign' => 'Möt med namnskylt',
+                'sign_service_self' => 'Hitta föraren själv',
+                'sign_fee' => 'Skyltavgift',
+                'sign_text' => 'Text på skylt',
             ],
             'da' => [
                 'order_number' => 'Bestillingsnummer',
@@ -493,6 +518,11 @@ final class OrderEmailSender
                 'pending_price' => 'Afventende prisforslag',
                 'customer_message' => 'Kundens besked',
                 'route' => 'Rute',
+                'sign_service' => 'Afhentningsvalg',
+                'sign_service_sign' => 'Mød med navneskilt',
+                'sign_service_self' => 'Find chaufføren selv',
+                'sign_fee' => 'Skiltgebyr',
+                'sign_text' => 'Tekst på skilt',
             ],
             default => [
                 'order_number' => 'Order number',
@@ -509,6 +539,11 @@ final class OrderEmailSender
                 'pending_price' => 'Pending price proposal',
                 'customer_message' => 'Customer message',
                 'route' => 'Route',
+                'sign_service' => 'Pickup service',
+                'sign_service_sign' => 'Meet with a name sign',
+                'sign_service_self' => 'Find the driver myself',
+                'sign_fee' => 'Sign fee',
+                'sign_text' => 'Sign text',
             ],
         };
         $details = [
@@ -536,6 +571,24 @@ final class OrderEmailSender
         $customerMessage = $this->extractCustomerMessage($order->additionalNotes());
         if ($customerMessage !== null) {
             $details[] = $labels['customer_message'] . ': ' . $customerMessage;
+        }
+
+        $signService = $this->extractSignService($order->additionalNotes());
+        if ($signService !== null) {
+            $signServiceLabel = $signService === 'sign'
+                ? $labels['sign_service_sign']
+                : $labels['sign_service_self'];
+            $details[] = $labels['sign_service'] . ': ' . $signServiceLabel;
+        }
+
+        $signFee = $this->extractSignFee($order->additionalNotes());
+        if ($signFee !== null) {
+            $details[] = $labels['sign_fee'] . ': ' . $signFee . ' PLN';
+        }
+
+        $signText = $this->extractSignText($order->additionalNotes());
+        if ($signText !== null) {
+            $details[] = $labels['sign_text'] . ': ' . $signText;
         }
 
         $route = $this->extractRoute($order->additionalNotes());
@@ -608,6 +661,65 @@ final class OrderEmailSender
         }
 
         return sprintf('%s → %s', $from, $to);
+    }
+
+    private function extractSignService(string $additionalNotes): ?string
+    {
+        $decoded = json_decode($additionalNotes, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $service = $decoded['signService'] ?? null;
+        if (!is_string($service)) {
+            return null;
+        }
+
+        $service = trim($service);
+        if ($service === '') {
+            return null;
+        }
+
+        return $service;
+    }
+
+    private function extractSignFee(string $additionalNotes): ?int
+    {
+        $decoded = json_decode($additionalNotes, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $fee = $decoded['signFee'] ?? null;
+        if (is_int($fee)) {
+            return $fee > 0 ? $fee : null;
+        }
+        if (is_string($fee) && is_numeric($fee)) {
+            $feeValue = (int) $fee;
+            return $feeValue > 0 ? $feeValue : null;
+        }
+
+        return null;
+    }
+
+    private function extractSignText(string $additionalNotes): ?string
+    {
+        $decoded = json_decode($additionalNotes, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $signText = $decoded['signText'] ?? null;
+        if (!is_string($signText)) {
+            return null;
+        }
+
+        $signText = trim($signText);
+        if ($signText === '') {
+            return null;
+        }
+
+        return $signText;
     }
 
     private function normalizeBackendBaseUrl(string $baseUrl): string
