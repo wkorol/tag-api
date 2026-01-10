@@ -23,6 +23,7 @@
         <field name="locale" type="string" length="2" />
         <field name="status" type="string" length="16" />
         <field name="confirmationToken" type="string" length="64" nullable="true" />
+        <field name="customerAccessToken" type="string" length="64" nullable="true" column="customer_access_token" />
         <field name="rejectionReason" type="text" nullable="true" />
         <field name="pendingPrice" type="string" length="32" nullable="true" />
         <field name="priceProposalToken" type="string" length="64" nullable="true" />

@@ -33,7 +33,7 @@ final class OrderEmailSender
     {
         $locale = $this->customerLocale($order);
         $t = $this->translations($locale);
-        $editUrl = $this->customerBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122();
+        $editUrl = $this->customerManageUrl($order);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
@@ -57,59 +57,77 @@ final class OrderEmailSender
         $listUrl = $adminToken !== ''
             ? $this->adminBaseUrl() . '/admin?token=' . $adminToken
             : null;
+        $contactLines = $this->adminContactLines($order);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($this->adminAddress)
-            ->subject($this->subject('New order awaiting confirmation', $order))
+            ->subject($this->subject('Nowe zamówienie do potwierdzenia', $order))
             ->text(implode("\n", [
-                'A new order has been placed.',
+                'Dodano nowe zamówienie.',
                 '',
-                'Manage (confirm/reject) using this link:',
+                'Zarządzaj (potwierdź/odrzuć) tutaj:',
                 $manageUrl,
                 '',
-                ...($listUrl ? ['All orders panel:', $listUrl, ''] : []),
-                ...$this->orderDetailsLines($order, 'en'),
+                ...($listUrl ? ['Panel wszystkich zamówień:', $listUrl, ''] : []),
+                ...$contactLines,
+                'Kalendarz: załącznik',
+                '',
+                ...$this->orderDetailsLines($order, 'pl'),
             ]));
 
+        $this->attachContactVcard($message, $order);
+        $this->attachCalendarInvite($message, $order);
         $this->sendEmail($message, $order, 'admin notification');
     }
 
     public function sendOrderUpdatedToAdmin(Order $order): void
     {
         $manageUrl = $this->adminManageUrl($order);
+        $contactLines = $this->adminContactLines($order);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($this->adminAddress)
-            ->subject($this->subject('Order updated, needs reconfirmation', $order))
+            ->subject($this->subject('Zamówienie zaktualizowane, wymaga ponownego potwierdzenia', $order))
             ->text(implode("\n", [
-                'The customer updated a previously confirmed order.',
+                'Klient zaktualizował wcześniej potwierdzone zamówienie.',
                 '',
-                'Please review and confirm again:',
+                'Sprawdź i potwierdź ponownie:',
                 $manageUrl,
                 '',
-                ...$this->orderDetailsLines($order, 'en'),
+                ...$contactLines,
+                'Kalendarz: załącznik',
+                '',
+                ...$this->orderDetailsLines($order, 'pl'),
             ]));
 
+        $this->attachContactVcard($message, $order);
+        $this->attachCalendarInvite($message, $order);
         $this->sendEmail($message, $order, 'order updated admin');
     }
 
     public function sendOrderCompletionReminderToAdmin(Order $order): void
     {
         $manageUrl = $this->adminManageUrl($order);
+        $contactLines = $this->adminContactLines($order);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($this->adminAddress)
-            ->subject($this->subject('Order ready to mark as completed', $order))
+            ->subject($this->subject('Zamówienie do oznaczenia jako zrealizowane', $order))
             ->text(implode("\n", [
-                'Pickup time has passed for a confirmed order.',
-                'Please mark it as completed or not completed.',
+                'Minął czas odbioru dla potwierdzonego zamówienia.',
+                'Oznacz je jako zrealizowane lub niezrealizowane.',
                 '',
-                'Open order:',
+                'Otwórz zamówienie:',
                 $manageUrl,
                 '',
-                ...$this->orderDetailsLines($order, 'en'),
+                ...$contactLines,
+                'Kalendarz: załącznik',
+                '',
+                ...$this->orderDetailsLines($order, 'pl'),
             ]));
 
+        $this->attachContactVcard($message, $order);
+        $this->attachCalendarInvite($message, $order);
         $this->sendEmail($message, $order, 'order completion reminder');
     }
 
@@ -117,7 +135,7 @@ final class OrderEmailSender
     {
         $locale = $this->customerLocale($order);
         $t = $this->translations($locale);
-        $manageUrl = $this->customerBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122();
+        $manageUrl = $this->customerManageUrl($order);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
@@ -143,8 +161,7 @@ final class OrderEmailSender
 
         $locale = $this->customerLocale($order);
         $t = $this->translations($locale);
-        $manageUrl = $this->customerBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122()
-            . '&update=' . implode(',', $fields);
+        $manageUrl = $this->customerManageUrl($order, ['update' => implode(',', $fields)]);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
@@ -168,22 +185,28 @@ final class OrderEmailSender
     {
         $fields = $this->normalizeUpdateFields($fields);
         $manageUrl = $this->adminManageUrl($order);
+        $contactLines = $this->adminContactLines($order);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($this->adminAddress)
-            ->subject($this->subject('Customer updated requested details', $order))
+            ->subject($this->subject('Klient zaktualizował wymagane dane', $order))
             ->text(implode("\n", [
-                'The customer has updated the requested booking details.',
+                'Klient zaktualizował wymagane dane rezerwacji.',
                 '',
-                $fields !== [] ? 'Updated fields:' : 'Updated fields: (not specified)',
-                $fields !== [] ? $this->formatUpdateFieldList($fields, 'en') : '',
+                $fields !== [] ? 'Zaktualizowane pola:' : 'Zaktualizowane pola: (nie podano)',
+                $fields !== [] ? $this->formatUpdateFieldList($fields, 'pl') : '',
                 '',
-                'Review the booking here:',
+                'Sprawdź rezerwację tutaj:',
                 $manageUrl,
                 '',
-                ...$this->orderDetailsLines($order, 'en'),
+                ...$contactLines,
+                'Kalendarz: załącznik',
+                '',
+                ...$this->orderDetailsLines($order, 'pl'),
             ]));
 
+        $this->attachContactVcard($message, $order);
+        $this->attachCalendarInvite($message, $order);
         $this->sendEmail($message, $order, 'order update completed');
     }
 
@@ -191,7 +214,7 @@ final class OrderEmailSender
     {
         $locale = $this->customerLocale($order);
         $t = $this->translations($locale);
-        $manageUrl = $this->customerBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122();
+        $manageUrl = $this->customerManageUrl($order);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
@@ -257,7 +280,7 @@ final class OrderEmailSender
     {
         $locale = $this->customerLocale($order);
         $t = $this->translations($locale);
-        $cancelUrl = $this->customerBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122() . '&cancelled=1';
+        $cancelUrl = $this->customerManageUrl($order, ['cancelled' => 1]);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($order->emailAddress())
@@ -276,16 +299,22 @@ final class OrderEmailSender
 
     public function sendOrderCancelledToAdmin(Order $order): void
     {
+        $contactLines = $this->adminContactLines($order);
         $message = (new Email())
             ->from($this->fromAddress)
             ->to($this->adminAddress)
-            ->subject($this->subject('Order cancelled by customer', $order))
+            ->subject($this->subject('Zamówienie anulowane przez klienta', $order))
             ->text(implode("\n", [
-                'The customer cancelled the order.',
+                'Klient anulował zamówienie.',
                 '',
-                ...$this->orderDetailsLines($order, 'en'),
+                ...$contactLines,
+                'Kalendarz: załącznik',
+                '',
+                ...$this->orderDetailsLines($order, 'pl'),
             ]));
 
+        $this->attachContactVcard($message, $order);
+        $this->attachCalendarInvite($message, $order);
         $this->sendEmail($message, $order, 'order cancelled admin');
     }
 
@@ -546,13 +575,19 @@ final class OrderEmailSender
                 'sign_text' => 'Sign text',
             ],
         };
+        $pickupAddress = $order->pickupAddress();
+        if ($locale === 'pl') {
+            $pickupAddress = $this->mapFixedRouteLabelToPolish($pickupAddress);
+        } elseif ($locale === 'en') {
+            $pickupAddress = $this->mapFixedRouteLabelToEnglish($pickupAddress);
+        }
         $details = [
             $labels['order_number'] . ': ' . $order->generatedId(),
             $labels['order_id'] . ': ' . $order->id()->toRfc4122(),
             $labels['customer'] . ': ' . $order->fullName(),
             $labels['customer_email'] . ': ' . $order->emailAddress(),
             $labels['phone'] . ': ' . $order->phoneNumber(),
-            $labels['pickup_address'] . ': ' . $order->pickupAddress(),
+            $labels['pickup_address'] . ': ' . $pickupAddress,
             $labels['date'] . ': ' . $order->date()->format('Y-m-d'),
             $labels['pickup_time'] . ': ' . $order->pickupTime(),
             $labels['flight_number'] . ': ' . $order->flightNumber(),
@@ -591,9 +626,18 @@ final class OrderEmailSender
             $details[] = $labels['sign_text'] . ': ' . $signText;
         }
 
-        $route = $this->extractRoute($order->additionalNotes());
+        $route = $this->extractRouteParts($order->additionalNotes());
         if ($route !== null) {
-            $details[] = $labels['route'] . ': ' . $route;
+            $from = $route['from'];
+            $to = $route['to'];
+            if ($locale === 'pl') {
+                $from = $this->mapFixedRouteLabelToPolish($from);
+                $to = $this->mapFixedRouteLabelToPolish($to);
+            } elseif ($locale === 'en') {
+                $from = $this->mapFixedRouteLabelToEnglish($from);
+                $to = $this->mapFixedRouteLabelToEnglish($to);
+            }
+            $details[] = $labels['route'] . ': ' . $from . ' → ' . $to;
         }
 
         return $details;
@@ -642,7 +686,7 @@ final class OrderEmailSender
         return $notes;
     }
 
-    private function extractRoute(string $additionalNotes): ?string
+    private function extractRouteParts(string $additionalNotes): ?array
     {
         $decoded = json_decode($additionalNotes, true);
         if (!is_array($decoded)) {
@@ -660,7 +704,63 @@ final class OrderEmailSender
             return null;
         }
 
-        return sprintf('%s → %s', $from, $to);
+        return ['from' => $from, 'to' => $to];
+    }
+
+    private function mapFixedRouteLabelToPolish(string $value): string
+    {
+        $normalized = trim($value);
+        $map = [
+            'Airport' => 'Lotnisko',
+            'Flughafen' => 'Lotnisko',
+            'Lentokenttä' => 'Lotnisko',
+            'Flyplass' => 'Lotnisko',
+            'Flygplats' => 'Lotnisko',
+            'Lufthavn' => 'Lotnisko',
+            'Lotnisko' => 'Lotnisko',
+            'Gdańsk City Center' => 'Centrum Gdańska',
+            'Gdańsk Zentrum' => 'Centrum Gdańska',
+            'Gdańsk centrum' => 'Centrum Gdańska',
+            'Gdańsk sentrum' => 'Centrum Gdańska',
+            'Gdańskin keskusta' => 'Centrum Gdańska',
+            'Centrum Gdańska' => 'Centrum Gdańska',
+            'Gdynia City Center' => 'Centrum Gdyni',
+            'Gdynia Zentrum' => 'Centrum Gdyni',
+            'Gdynia centrum' => 'Centrum Gdyni',
+            'Gdynia sentrum' => 'Centrum Gdyni',
+            'Gdynian keskusta' => 'Centrum Gdyni',
+            'Centrum Gdyni' => 'Centrum Gdyni',
+        ];
+
+        return $map[$normalized] ?? $normalized;
+    }
+
+    private function mapFixedRouteLabelToEnglish(string $value): string
+    {
+        $normalized = trim($value);
+        $map = [
+            'Lotnisko' => 'Airport',
+            'Flughafen' => 'Airport',
+            'Lentokenttä' => 'Airport',
+            'Flyplass' => 'Airport',
+            'Flygplats' => 'Airport',
+            'Lufthavn' => 'Airport',
+            'Airport' => 'Airport',
+            'Centrum Gdańska' => 'Gdańsk City Center',
+            'Gdańsk Zentrum' => 'Gdańsk City Center',
+            'Gdańsk centrum' => 'Gdańsk City Center',
+            'Gdańsk sentrum' => 'Gdańsk City Center',
+            'Gdańskin keskusta' => 'Gdańsk City Center',
+            'Gdańsk City Center' => 'Gdańsk City Center',
+            'Centrum Gdyni' => 'Gdynia City Center',
+            'Gdynia Zentrum' => 'Gdynia City Center',
+            'Gdynia centrum' => 'Gdynia City Center',
+            'Gdynia sentrum' => 'Gdynia City Center',
+            'Gdynian keskusta' => 'Gdynia City Center',
+            'Gdynia City Center' => 'Gdynia City Center',
+        ];
+
+        return $map[$normalized] ?? $normalized;
     }
 
     private function extractSignService(string $additionalNotes): ?string
@@ -735,7 +835,7 @@ final class OrderEmailSender
     private function customerLocale(Order $order): string
     {
         $locale = $order->locale();
-        return in_array($locale, ['en', 'pl', 'de', 'fi', 'no', 'sv', 'da'], true) ? $locale : 'en';
+        return $locale === 'pl' ? 'pl' : 'en';
     }
 
     private function customerBaseUrl(Order $order): string
@@ -746,11 +846,166 @@ final class OrderEmailSender
         return $base . $localePath;
     }
 
+    private function customerManageUrl(Order $order, array $params = []): string
+    {
+        $query = array_merge(['orderId' => $order->id()->toRfc4122()], $params);
+        $token = $order->customerAccessToken();
+        if ($token !== null && $token !== '') {
+            $query['token'] = $token;
+        }
+
+        return $this->customerBaseUrl($order) . '/?' . http_build_query($query);
+    }
+
     private function adminBaseUrl(): string
     {
         $base = rtrim($this->frontendBaseUrl, '/');
 
-        return $base . '/en';
+        return $base . '/pl';
+    }
+
+    private function adminContactLines(Order $order): array
+    {
+        $phone = $order->phoneNumber();
+        $whatsapp = $this->whatsappLink($phone);
+        $lines = ['Kontakt klienta:'];
+        if ($whatsapp !== null) {
+            $lines[] = 'WhatsApp: ' . $whatsapp;
+        }
+        $lines[] = 'vCard: załącznik';
+
+        return $lines;
+    }
+
+    private function attachContactVcard(Email $message, Order $order): void
+    {
+        $phone = $this->normalizePhone($order->phoneNumber());
+        if ($phone === null) {
+            return;
+        }
+
+        $fullName = trim($order->fullName());
+        $parts = array_values(array_filter(preg_split('/\s+/', $fullName) ?: []));
+        $lastName = $parts !== [] ? array_pop($parts) : '';
+        $firstName = $parts !== [] ? implode(' ', $parts) : $fullName;
+
+        $vcard = implode("\n", [
+            'BEGIN:VCARD',
+            'VERSION:3.0',
+            'N:' . $lastName . ';' . $firstName . ';;;',
+            'FN:' . $fullName,
+            'TEL;TYPE=CELL:' . $phone,
+            'END:VCARD',
+        ]);
+
+        $message->attach($vcard, 'kontakt-' . $order->generatedId() . '.vcf', 'text/vcard');
+    }
+
+    private function attachCalendarInvite(Email $message, Order $order): void
+    {
+        $ics = $this->buildCalendarInvite($order);
+        if ($ics === null) {
+            return;
+        }
+
+        $message->attach($ics, 'zlecenie-' . $order->generatedId() . '.ics', 'text/calendar');
+    }
+
+    private function buildCalendarInvite(Order $order): ?string
+    {
+        $date = $order->date();
+        $time = $order->pickupTime();
+        if ($time === '') {
+            return null;
+        }
+
+        $timezone = new \DateTimeZone('Europe/Warsaw');
+        $dateTime = \DateTimeImmutable::createFromFormat('Y-m-d H:i', $date->format('Y-m-d') . ' ' . $time, $timezone);
+        if (!$dateTime) {
+            return null;
+        }
+
+        $endTime = $dateTime->modify('+60 minutes');
+        if (!$endTime) {
+            return null;
+        }
+
+        $pickupAddress = $this->mapFixedRouteLabelToPolish($order->pickupAddress());
+        $summary = 'Taxi Airport Gdańsk - Odbiór #' . $order->generatedId();
+        $description = implode('\\n', [
+            'Klient: ' . $order->fullName(),
+            'Telefon: ' . $order->phoneNumber(),
+            'Adres odbioru: ' . $pickupAddress,
+        ]);
+        $uid = $order->id()->toRfc4122() . '@taxiairportgdansk.com';
+        $stamp = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+
+        return implode("\r\n", [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//Taxi Airport Gdańsk//PL',
+            'CALSCALE:GREGORIAN',
+            'BEGIN:VEVENT',
+            'UID:' . $uid,
+            'DTSTAMP:' . $stamp->format('Ymd\\THis\\Z'),
+            'DTSTART;TZID=Europe/Warsaw:' . $dateTime->format('Ymd\\THis'),
+            'DTEND;TZID=Europe/Warsaw:' . $endTime->format('Ymd\\THis'),
+            'SUMMARY:' . $summary,
+            'DESCRIPTION:' . $description,
+            'LOCATION:' . $pickupAddress,
+            'BEGIN:VALARM',
+            'TRIGGER:-P1D',
+            'ACTION:DISPLAY',
+            'DESCRIPTION:Przypomnienie o zleceniu',
+            'END:VALARM',
+            'BEGIN:VALARM',
+            'TRIGGER:-PT2H',
+            'ACTION:DISPLAY',
+            'DESCRIPTION:Przypomnienie o zleceniu',
+            'END:VALARM',
+            'END:VEVENT',
+            'END:VCALENDAR',
+            '',
+        ]);
+    }
+
+    private function whatsappLink(string $phone): ?string
+    {
+        $digits = preg_replace('/\D/', '', $phone);
+        if ($digits === null || $digits === '') {
+            return null;
+        }
+        if (str_starts_with($digits, '48')) {
+            return 'https://wa.me/' . $digits;
+        }
+        if (strlen($digits) === 9) {
+            return 'https://wa.me/48' . $digits;
+        }
+        if (strlen($digits) === 10 && str_starts_with($digits, '0')) {
+            return 'https://wa.me/48' . substr($digits, 1);
+        }
+
+        return 'https://wa.me/' . $digits;
+    }
+
+    private function normalizePhone(string $phone): ?string
+    {
+        $trimmed = trim($phone);
+        if ($trimmed === '') {
+            return null;
+        }
+        if (str_starts_with($trimmed, '+')) {
+            return $trimmed;
+        }
+        $digits = preg_replace('/\D/', '', $trimmed);
+        if ($digits === null || $digits === '') {
+            return null;
+        }
+        if (str_starts_with($digits, '00')) {
+            return '+' . substr($digits, 2);
+        }
+
+        return '+' . $digits;
     }
 
     private function translations(string $locale): array

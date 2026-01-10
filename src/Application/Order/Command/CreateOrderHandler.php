@@ -20,6 +20,7 @@ final class CreateOrderHandler
     public function __invoke(CreateOrder $command): Order
     {
         $confirmationToken = bin2hex(random_bytes(16));
+        $customerAccessToken = bin2hex(random_bytes(16));
         $generatedId = $this->generateGeneratedId();
 
         $order = new Order(
@@ -38,6 +39,7 @@ final class CreateOrderHandler
             $command->locale,
             Order::STATUS_PENDING,
             $confirmationToken,
+            $customerAccessToken,
             null,
             null,
             null,

@@ -32,6 +32,7 @@ final class Order
     private string $locale;
     private string $status;
     private ?string $confirmationToken;
+    private ?string $customerAccessToken;
     private ?string $rejectionReason;
     private ?string $pendingPrice;
     private ?string $priceProposalToken;
@@ -54,6 +55,7 @@ final class Order
         string $locale,
         string $status,
         ?string $confirmationToken,
+        ?string $customerAccessToken,
         ?string $rejectionReason,
         ?string $pendingPrice,
         ?string $priceProposalToken,
@@ -79,6 +81,7 @@ final class Order
         $this->locale = $locale;
         $this->status = $status;
         $this->confirmationToken = $confirmationToken;
+        $this->customerAccessToken = $customerAccessToken;
         $this->rejectionReason = $rejectionReason;
         $this->pendingPrice = $pendingPrice;
         $this->priceProposalToken = $priceProposalToken;
@@ -159,6 +162,11 @@ final class Order
     public function confirmationToken(): ?string
     {
         return $this->confirmationToken;
+    }
+
+    public function customerAccessToken(): ?string
+    {
+        return $this->customerAccessToken;
     }
 
     public function rejectionReason(): ?string

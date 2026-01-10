@@ -78,10 +78,15 @@ final class OrderController
         try {
             $orderId = $this->uuidFrom($id);
             $order = $this->fetchOrder($entityManager, $orderId);
-            $currentEmail = array_key_exists('currentEmailAddress', $data)
-                ? $this->stringFrom($data, 'currentEmailAddress')
-                : $this->stringFrom($data, 'emailAddress');
-            $this->assertEmailMatches($order, $currentEmail);
+            $accessToken = $this->accessTokenFrom($data);
+            if ($accessToken !== null) {
+                $this->assertAccessTokenMatches($order, $accessToken);
+            } else {
+                $currentEmail = array_key_exists('currentEmailAddress', $data)
+                    ? $this->stringFrom($data, 'currentEmailAddress')
+                    : $this->stringFrom($data, 'emailAddress');
+                $this->assertEmailMatches($order, $currentEmail);
+            }
             $this->assertEditable($order);
             $wasConfirmed = $order->status() === Order::STATUS_CONFIRMED;
 
@@ -179,7 +184,12 @@ final class OrderController
         try {
             $orderId = $this->uuidFrom($id);
             $order = $this->fetchOrder($entityManager, $orderId);
-            $this->assertEmailMatches($order, $this->stringFrom($data, 'emailAddress'));
+            $accessToken = $this->accessTokenFrom($data);
+            if ($accessToken !== null) {
+                $this->assertAccessTokenMatches($order, $accessToken);
+            } else {
+                $this->assertEmailMatches($order, $this->stringFrom($data, 'emailAddress'));
+            }
         } catch (OrderNotFound $exception) {
             return $this->errorResponse($exception->getMessage(), Response::HTTP_NOT_FOUND);
         } catch (InvalidArgumentException|ValueError $exception) {
@@ -325,8 +335,7 @@ final class OrderController
         $entityManager->flush();
         $emailSender->sendOrderConfirmedToCustomer($order);
 
-        $redirectUrl = $this->customerFrontendBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122()
-            . '&priceAccepted=1';
+        $redirectUrl = $this->customerAccessUrl($order, ['priceAccepted' => 1]);
         return new RedirectResponse($redirectUrl);
     }
 
@@ -511,7 +520,7 @@ final class OrderController
         $emailSender->sendOrderCancelledToAdmin($order);
         ($handler)(new DeleteOrder($orderId));
 
-        $redirectUrl = $this->customerFrontendBaseUrl($order) . '/?orderId=' . $order->id()->toRfc4122() . '&cancelled=1';
+        $redirectUrl = $this->customerAccessUrl($order, ['cancelled' => 1]);
 
         return new RedirectResponse($redirectUrl);
     }
@@ -532,7 +541,12 @@ final class OrderController
         try {
             $orderId = $this->uuidFrom($id);
             $order = $this->fetchOrder($entityManager, $orderId);
-            $this->assertEmailMatches($order, $this->stringFrom($data, 'emailAddress'));
+            $accessToken = $this->accessTokenFrom($data);
+            if ($accessToken !== null) {
+                $this->assertAccessTokenMatches($order, $accessToken);
+            } else {
+                $this->assertEmailMatches($order, $this->stringFrom($data, 'emailAddress'));
+            }
             ($handler)(new DeleteOrder($orderId));
             $emailSender->sendOrderCancelledToCustomer($order);
             $emailSender->sendOrderCancelledToAdmin($order);
@@ -704,6 +718,33 @@ final class OrderController
         }
     }
 
+    private function accessTokenFrom(array $data): ?string
+    {
+        if (!array_key_exists('accessToken', $data)) {
+            return null;
+        }
+
+        $value = $data['accessToken'];
+        if (!is_string($value)) {
+            throw new InvalidArgumentException('Field "accessToken" must be a string.');
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function assertAccessTokenMatches(Order $order, string $accessToken): void
+    {
+        $expected = $order->customerAccessToken();
+        if ($expected === null || $expected === '' || !hash_equals($expected, $accessToken)) {
+            throw new \RuntimeException('Access token does not match this order.');
+        }
+    }
+
     private function assertEditable(Order $order): void
     {
         if (!in_array($order->status(), [Order::STATUS_PENDING, Order::STATUS_CONFIRMED], true)) {
@@ -738,11 +779,22 @@ final class OrderController
         return $base . '/' . $locale;
     }
 
+    private function customerAccessUrl(Order $order, array $params = []): string
+    {
+        $query = array_merge(['orderId' => $order->id()->toRfc4122()], $params);
+        $token = $order->customerAccessToken();
+        if ($token !== null && $token !== '') {
+            $query['token'] = $token;
+        }
+
+        return $this->customerFrontendBaseUrl($order) . '/?' . http_build_query($query);
+    }
+
     private function adminFrontendBaseUrl(): string
     {
         $base = rtrim($this->frontendBaseUrl(), '/');
 
-        return $base . '/en';
+        return $base . '/pl';
     }
 
     private function adminPanelToken(): string
