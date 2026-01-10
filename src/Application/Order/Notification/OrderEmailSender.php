@@ -1114,7 +1114,7 @@ final class OrderEmailSender
                 'line_cancelled' => 'Twoja rezerwacja została anulowana zgodnie z prośbą.',
                 'line_view_cancel' => 'Zobacz podsumowanie anulowania:',
                 'line_failed_intro' => 'Niestety wygląda na to, że zlecenie nie zostało zrealizowane.',
-                'line_failed_body' => 'Prawdopodobnie nie pojawiłeś/-aś się w umówionym miejscu i czasie.',
+                'line_failed_body' => 'Zlecenie nie zostało zrealizowane w umówionym terminie.',
                 'line_failed_apology' => 'Pamiętaj, że zawsze jesteśmy do Twoich usług i nie rezygnujemy z Ciebie. Przepraszamy, jeśli coś poszło nie tak z naszej strony.',
             ],
             'de' => [
@@ -1269,7 +1269,7 @@ final class OrderEmailSender
                 'line_cancelled' => 'Your booking has been cancelled as requested.',
                 'line_view_cancel' => 'View the cancellation summary:',
                 'line_failed_intro' => 'Unfortunately it looks like the order was not completed.',
-                'line_failed_body' => 'Most likely you did not show up at the agreed place and time.',
+                'line_failed_body' => 'The order could not be completed at the scheduled time.',
                 'line_failed_apology' => 'Please remember we are always at your service and we do not give up on you. We are sorry if anything went wrong on our side.',
             ],
         };
