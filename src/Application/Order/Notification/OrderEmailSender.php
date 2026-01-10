@@ -13,6 +13,8 @@ use Throwable;
 
 final class OrderEmailSender
 {
+    private const BUSINESS_PHONE = '+48537523437';
+    private const BUSINESS_EMAIL = 'booking@taxiairportgdansk.com';
     public function __construct(
         private readonly MailerInterface $mailer,
         private readonly LoggerInterface $logger,
@@ -229,6 +231,52 @@ final class OrderEmailSender
             ]));
 
         $this->sendEmail($message, $order, 'order reminder');
+    }
+
+    public function sendOrderCompletionThanksToCustomer(Order $order): void
+    {
+        $locale = $this->customerLocale($order);
+        $t = $this->translations($locale);
+        $whatsapp = $this->whatsappLink(self::BUSINESS_PHONE);
+        $contactLines = array_filter([
+            $t['line_order_again'],
+            $t['line_contact_phone'] . ' ' . self::BUSINESS_PHONE,
+            $whatsapp ? $t['line_contact_whatsapp'] . ' ' . $whatsapp : null,
+            $t['line_contact_site'] . ' ' . rtrim($this->frontendBaseUrl, '/'),
+            $t['line_contact_email'] . ' ' . self::BUSINESS_EMAIL,
+        ]);
+        $message = (new Email())
+            ->from($this->fromAddress)
+            ->to($order->emailAddress())
+            ->subject($this->subject($t['subject_order_completed'], $order))
+            ->text(implode("\n", [
+                $t['line_completion_thanks'],
+                '',
+                ...$contactLines,
+                '',
+                ...$this->orderDetailsLines($order, $locale),
+            ]));
+
+        $this->sendEmail($message, $order, 'order completed');
+    }
+
+    public function sendOrderFailedToCustomer(Order $order): void
+    {
+        $locale = $this->customerLocale($order);
+        $t = $this->translations($locale);
+        $message = (new Email())
+            ->from($this->fromAddress)
+            ->to($order->emailAddress())
+            ->subject($this->subject($t['subject_order_failed'], $order))
+            ->text(implode("\n", [
+                $t['line_failed_intro'],
+                $t['line_failed_body'],
+                $t['line_failed_apology'],
+                '',
+                ...$this->orderDetailsLines($order, $locale),
+            ]));
+
+        $this->sendEmail($message, $order, 'order failed');
     }
 
     public function sendPriceProposalToCustomer(Order $order, string $price, string $acceptUrl, string $rejectUrl): void
@@ -581,6 +629,7 @@ final class OrderEmailSender
         } elseif ($locale === 'en') {
             $pickupAddress = $this->mapFixedRouteLabelToEnglish($pickupAddress);
         }
+        $pickupType = $this->extractPickupType($order->additionalNotes());
         $details = [
             $labels['order_number'] . ': ' . $order->generatedId(),
             $labels['order_id'] . ': ' . $order->id()->toRfc4122(),
@@ -590,9 +639,11 @@ final class OrderEmailSender
             $labels['pickup_address'] . ': ' . $pickupAddress,
             $labels['date'] . ': ' . $order->date()->format('Y-m-d'),
             $labels['pickup_time'] . ': ' . $order->pickupTime(),
-            $labels['flight_number'] . ': ' . $order->flightNumber(),
             $labels['price'] . ': ' . $order->proposedPrice() . ' PLN',
         ];
+        if ($pickupType === 'airport') {
+            $details[] = $labels['flight_number'] . ': ' . $order->flightNumber();
+        }
 
         $passengers = $this->extractPassengers($order->additionalNotes());
         if ($passengers !== null) {
@@ -609,7 +660,7 @@ final class OrderEmailSender
         }
 
         $signService = $this->extractSignService($order->additionalNotes());
-        if ($signService !== null) {
+        if ($signService !== null && $pickupType === 'airport') {
             $signServiceLabel = $signService === 'sign'
                 ? $labels['sign_service_sign']
                 : $labels['sign_service_self'];
@@ -617,12 +668,12 @@ final class OrderEmailSender
         }
 
         $signFee = $this->extractSignFee($order->additionalNotes());
-        if ($signFee !== null) {
+        if ($signFee !== null && $pickupType === 'airport') {
             $details[] = $labels['sign_fee'] . ': ' . $signFee . ' PLN';
         }
 
         $signText = $this->extractSignText($order->additionalNotes());
-        if ($signText !== null) {
+        if ($signText !== null && $pickupType === 'airport') {
             $details[] = $labels['sign_text'] . ': ' . $signText;
         }
 
@@ -781,6 +832,26 @@ final class OrderEmailSender
         }
 
         return $service;
+    }
+
+    private function extractPickupType(string $additionalNotes): ?string
+    {
+        $decoded = json_decode($additionalNotes, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $pickupType = $decoded['pickupType'] ?? null;
+        if (!is_string($pickupType)) {
+            return null;
+        }
+
+        $pickupType = trim($pickupType);
+        if (!in_array($pickupType, ['airport', 'address'], true)) {
+            return null;
+        }
+
+        return $pickupType;
     }
 
     private function extractSignFee(string $additionalNotes): ?int
@@ -1014,6 +1085,8 @@ final class OrderEmailSender
             'pl' => [
                 'subject_order_received' => 'Zamówienie przyjęte',
                 'subject_order_confirmed' => 'Zamówienie potwierdzone',
+                'subject_order_completed' => 'Dziękujemy za przejazd',
+                'subject_order_failed' => 'Zamówienie niezrealizowane',
                 'subject_update_request' => 'Prośba o aktualizację rezerwacji',
                 'subject_reminder' => 'Przypomnienie 24h',
                 'subject_price_proposed' => 'Nowa propozycja ceny',
@@ -1022,6 +1095,12 @@ final class OrderEmailSender
                 'line_thank_you' => 'Dziękujemy za rezerwację.',
                 'line_edit_cancel' => 'Możesz edytować lub anulować zamówienie, korzystając z poniższego linku:',
                 'line_booking_confirmed' => 'Twoja rezerwacja została potwierdzona.',
+                'line_completion_thanks' => 'Dziękujemy za skorzystanie z Taxi Airport Gdańsk. Mamy nadzieję, że podróż była udana. Do zobaczenia!',
+                'line_order_again' => 'Chcesz zamówić ponownie? Skontaktuj się z nami:',
+                'line_contact_phone' => 'Telefon:',
+                'line_contact_whatsapp' => 'WhatsApp:',
+                'line_contact_site' => 'Strona:',
+                'line_contact_email' => 'E-mail:',
                 'line_update_prompt' => 'Potrzebujemy krótkiej aktualizacji Twoich danych rezerwacji.',
                 'line_update_fields' => 'Zaktualizuj podświetlone pola:',
                 'line_open_booking' => 'Otwórz rezerwację tutaj:',
@@ -1034,6 +1113,9 @@ final class OrderEmailSender
                 'line_reason' => 'Powód:',
                 'line_cancelled' => 'Twoja rezerwacja została anulowana zgodnie z prośbą.',
                 'line_view_cancel' => 'Zobacz podsumowanie anulowania:',
+                'line_failed_intro' => 'Niestety wygląda na to, że zlecenie nie zostało zrealizowane.',
+                'line_failed_body' => 'Prawdopodobnie nie pojawiłeś/-aś się w umówionym miejscu i czasie.',
+                'line_failed_apology' => 'Pamiętaj, że zawsze jesteśmy do Twoich usług i nie rezygnujemy z Ciebie. Przepraszamy, jeśli coś poszło nie tak z naszej strony.',
             ],
             'de' => [
                 'subject_order_received' => 'Bestellung erhalten',
@@ -1158,6 +1240,8 @@ final class OrderEmailSender
             default => [
                 'subject_order_received' => 'Order received',
                 'subject_order_confirmed' => 'Order confirmed',
+                'subject_order_completed' => 'Thank you for your ride',
+                'subject_order_failed' => 'Order not completed',
                 'subject_update_request' => 'Please update your booking details',
                 'subject_reminder' => '24h reminder',
                 'subject_price_proposed' => 'New price proposed',
@@ -1166,6 +1250,12 @@ final class OrderEmailSender
                 'line_thank_you' => 'Thank you for your booking.',
                 'line_edit_cancel' => 'You can edit or cancel your order using the link below:',
                 'line_booking_confirmed' => 'Your booking has been confirmed.',
+                'line_completion_thanks' => 'Thank you for choosing Taxi Airport Gdańsk. We hope you had a great ride. See you again!',
+                'line_order_again' => 'Want to book again? Contact us:',
+                'line_contact_phone' => 'Phone:',
+                'line_contact_whatsapp' => 'WhatsApp:',
+                'line_contact_site' => 'Website:',
+                'line_contact_email' => 'Email:',
                 'line_update_prompt' => 'We need a quick update to your booking details.',
                 'line_update_fields' => 'Please update the highlighted fields:',
                 'line_open_booking' => 'Open your booking here:',
@@ -1178,6 +1268,9 @@ final class OrderEmailSender
                 'line_reason' => 'Reason:',
                 'line_cancelled' => 'Your booking has been cancelled as requested.',
                 'line_view_cancel' => 'View the cancellation summary:',
+                'line_failed_intro' => 'Unfortunately it looks like the order was not completed.',
+                'line_failed_body' => 'Most likely you did not show up at the agreed place and time.',
+                'line_failed_apology' => 'Please remember we are always at your service and we do not give up on you. We are sorry if anything went wrong on our side.',
             ],
         };
     }

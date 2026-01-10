@@ -445,11 +445,71 @@ final class OrderController
         return new JsonResponse(['status' => 'requested']);
     }
 
+    #[Route('/api/admin/orders/{id}/cancel', name: 'admin_orders_cancel', methods: ['POST'])]
+    public function adminCancel(
+        string $id,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        \App\Application\Order\Notification\OrderEmailSender $emailSender
+    ): JsonResponse {
+        $token = $request->query->get('token');
+        if (!is_string($token) || !$this->isAdminTokenValid($token)) {
+            return $this->errorResponse('Invalid admin token.', Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $orderId = $this->uuidFrom($id);
+            $order = $this->fetchOrder($entityManager, $orderId);
+        } catch (OrderNotFound|InvalidArgumentException|ValueError $exception) {
+            return $this->errorResponse('Invalid order.', Response::HTTP_NOT_FOUND);
+        }
+
+        if ($order->status() !== Order::STATUS_CONFIRMED) {
+            return $this->errorResponse('Only confirmed orders can be cancelled.', Response::HTTP_BAD_REQUEST);
+        }
+
+        $reason = $this->adminCancellationReason($order);
+        $order->reject($reason);
+        $entityManager->flush();
+        $emailSender->sendOrderRejectedToCustomer($order, $reason);
+
+        return new JsonResponse(['status' => $order->status()]);
+    }
+
+    #[Route('/api/admin/orders/{id}/delete', name: 'admin_orders_delete', methods: ['DELETE'])]
+    public function adminDelete(
+        string $id,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        DeleteOrderHandler $handler
+    ): JsonResponse {
+        $token = $request->query->get('token');
+        if (!is_string($token) || !$this->isAdminTokenValid($token)) {
+            return $this->errorResponse('Invalid admin token.', Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $orderId = $this->uuidFrom($id);
+            $order = $this->fetchOrder($entityManager, $orderId);
+        } catch (OrderNotFound|InvalidArgumentException|ValueError $exception) {
+            return $this->errorResponse('Invalid order.', Response::HTTP_NOT_FOUND);
+        }
+
+        if ($order->status() !== Order::STATUS_REJECTED) {
+            return $this->errorResponse('Only rejected orders can be deleted.', Response::HTTP_BAD_REQUEST);
+        }
+
+        ($handler)(new DeleteOrder($orderId));
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
     #[Route('/api/admin/orders/{id}/fulfillment', name: 'admin_orders_fulfillment', methods: ['POST'])]
     public function adminFulfillment(
         string $id,
         Request $request,
-        EntityManagerInterface $entityManager
+        EntityManagerInterface $entityManager,
+        \App\Application\Order\Notification\OrderEmailSender $emailSender
     ): JsonResponse {
         $token = $request->query->get('token');
         if (!is_string($token) || trim($token) === '') {
@@ -488,6 +548,12 @@ final class OrderController
         }
 
         $entityManager->flush();
+
+        if ($action === 'completed') {
+            $emailSender->sendOrderCompletionThanksToCustomer($order);
+        } else {
+            $emailSender->sendOrderFailedToCustomer($order);
+        }
 
         return new JsonResponse(['status' => $order->status()]);
     }
@@ -849,6 +915,13 @@ final class OrderController
             'confirmationToken' => $order->confirmationToken(),
             'completionReminderSentAt' => $order->completionReminderSentAt()?->format(DATE_ATOM),
         ];
+    }
+
+    private function adminCancellationReason(Order $order): string
+    {
+        return $order->locale() === 'pl'
+            ? 'Przepraszamy, ale musimy anulować zamówienie z powodu braku dostępności taksówek w tym czasie.'
+            : 'We are sorry, but we have to cancel your order due to a lack of taxi availability at the requested time.';
     }
 
     private function handleAdminDecision(
