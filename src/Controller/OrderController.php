@@ -547,6 +547,7 @@ final class OrderController
             } else {
                 $this->assertEmailMatches($order, $this->stringFrom($data, 'emailAddress'));
             }
+            $this->assertEditable($order);
             ($handler)(new DeleteOrder($orderId));
             $emailSender->sendOrderCancelledToCustomer($order);
             $emailSender->sendOrderCancelledToAdmin($order);
