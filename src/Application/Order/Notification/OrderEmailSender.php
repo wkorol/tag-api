@@ -13,7 +13,7 @@ use Throwable;
 
 final class OrderEmailSender
 {
-    private const BUSINESS_PHONE = '+48537523437';
+    private const BUSINESS_PHONE = '+48694347548';
     private const BUSINESS_EMAIL = 'booking@taxiairportgdansk.com';
     public function __construct(
         private readonly MailerInterface $mailer,
